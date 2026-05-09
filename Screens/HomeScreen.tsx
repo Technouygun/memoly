@@ -1,16 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
-type HomeScreenProps = {
-  onOnlinePlay: () => void;
-  onOfflineModes: () => void;
-  onSettings: () => void;
-};
+export default function HomeScreen() {
+  const navigation = useNavigation<any>();
 
-export default function HomeScreen({
-  onOnlinePlay,
-  onOfflineModes,
-  onSettings,
-}: HomeScreenProps) {
   return (
     <View style={styles.container}>
       <View style={styles.topContent}>
@@ -22,20 +15,26 @@ export default function HomeScreen({
           Kartları aç, eşleşmeleri bul ve rakibinden daha fazla kart topla.
         </Text>
 
-        <TouchableOpacity style={styles.playButton} onPress={onOnlinePlay}>
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => navigation.navigate("GameScreen")}
+        >
           <Text style={styles.playButtonText}>Oyna</Text>
           <Text style={styles.buttonSubText}>Çevrimiçi moda gir</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.offlineButton}
-          onPress={onOfflineModes}
+          onPress={() => navigation.navigate("OfflineModesScreen")}
         >
           <Text style={styles.offlineButtonText}>Çevrimdışı Modlar</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.settingsButton} onPress={onSettings}>
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => navigation.navigate("SettingsScreen")}
+      >
         <Text style={styles.settingsText}>Ayarlar</Text>
       </TouchableOpacity>
     </View>

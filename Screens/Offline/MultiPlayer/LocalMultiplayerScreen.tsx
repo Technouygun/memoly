@@ -6,16 +6,14 @@ import {
   StyleSheet,
   SafeAreaView,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
 type BoardSize = "4x4" | "4x5" | "4x6" | "5x6";
 type PlayerCount = 2 | 3 | 4;
 
-type Props = {
-  onBack: () => void;
-  onStartGame: (boardSize: BoardSize, playerCount: PlayerCount) => void;
-};
+export default function LocalMultiplayerScreen() {
+  const navigation = useNavigation<any>();
 
-export default function LocalMultiplayerScreen({ onBack, onStartGame }: Props) {
   const [selectedBoard, setSelectedBoard] = useState<BoardSize | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<PlayerCount | null>(
     null
@@ -28,7 +26,11 @@ export default function LocalMultiplayerScreen({ onBack, onStartGame }: Props) {
 
   const handleStart = () => {
     if (!selectedBoard || !selectedPlayers) return;
-    onStartGame(selectedBoard, selectedPlayers);
+
+    navigation.navigate("GameScreen", {
+      boardSize: selectedBoard,
+      playerCount: selectedPlayers,
+    });
   };
 
   return (
@@ -94,8 +96,11 @@ export default function LocalMultiplayerScreen({ onBack, onStartGame }: Props) {
       )}
 
       <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.homeButton} onPress={onBack}>
-          <Text style={styles.homeButtonText}>Anasayfa</Text>
+        <TouchableOpacity
+          style={styles.homeButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.homeButtonText}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

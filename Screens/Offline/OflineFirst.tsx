@@ -1,16 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
-type OfflineModesScreenProps = {
-  onLocalMultiplayer: () => void;
-  onExercise: () => void;
-  onHome: () => void;
-};
+export default function OfflineModesScreen() {
+  const navigation = useNavigation<any>();
 
-export default function OfflineModesScreen({
-  onLocalMultiplayer,
-  onExercise,
-  onHome,
-}: OfflineModesScreenProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>MEMOLY</Text>
@@ -24,17 +17,23 @@ export default function OfflineModesScreen({
       <View style={styles.buttons}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={onLocalMultiplayer}
+          onPress={() => navigation.navigate("LocalMultiplayerScreen")}
         >
           <Text style={styles.primaryButtonText}>Tek Telefon Çok Kişi</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={onExercise}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("ExerciseFirst")}
+        >
           <Text style={styles.secondaryButtonText}>Egzersiz</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.homeButton} onPress={onHome}>
+      <TouchableOpacity
+        style={styles.homeButton}
+        onPress={() => navigation.navigate("HomeScreen")}
+      >
         <Text style={styles.homeButtonText}>Anasayfa</Text>
       </TouchableOpacity>
     </View>

@@ -7,15 +7,10 @@ import {
   SafeAreaView,
   Alert,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
 type BoardSize = "4x4" | "4x5" | "4x6" | "5x6";
 type PlayerCount = 2 | 3 | 4;
-
-type Props = {
-  onBack: () => void;
-  boardSize?: BoardSize;
-  playerCount?: PlayerCount;
-};
 
 type CardItem = {
   id: number;
@@ -42,12 +37,13 @@ const emojis = [
   "⚽",
 ];
 
-export default function GameScreen({
-  onBack,
-  boardSize = "4x4",
-  playerCount = 2,
-}: Props) {
-  const { row, column, totalCards } = useMemo(() => {
+export default function GameScreen() {
+  const navigation = useNavigation<any>();
+
+  const boardSize: BoardSize = "4x4";
+  const playerCount: PlayerCount = 2;
+
+  const { column, totalCards } = useMemo(() => {
     const [rowValue, columnValue] = boardSize.split("x").map(Number);
 
     return {
@@ -152,6 +148,7 @@ export default function GameScreen({
 
   const finishGame = (finalScores: number[]) => {
     const highestScore = Math.max(...finalScores);
+
     const winners = finalScores
       .map((score, index) => ({
         player: index + 1,
@@ -228,8 +225,11 @@ export default function GameScreen({
           <Text style={styles.buttonText}>Yeniden Başlat</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.buttonText}>Geri Dön</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -357,6 +357,12 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: "#111827",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  backButtonText: {
+    color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "900",
   },

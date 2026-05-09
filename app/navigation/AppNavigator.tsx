@@ -1,66 +1,73 @@
-import { useState } from "react";
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import HomeScreen from "../../Screens/HomeScreen";
 import GameScreen from "../../Screens/GameScreen";
 import OfflineModesScreen from "../../Screens/Offline/OflineFirst";
 import LocalMultiplayerScreen from "../../Screens/Offline/MultiPlayer/LocalMultiplayerScreen";
-type BoardSize = "4x4" | "4x5" | "4x6" | "5x6";
-type PlayerCount = 2 | 3 | 4;
+import ExerciseFirst from "../../Screens/Offline/Egzersiz/ExerciseFirst";
+import SequenceMemoryScreen from "../../Screens/Offline/Egzersiz/Games/SequenceMemoryScreen";
+import FlashMemoryScreen from "../../Screens/Offline/Egzersiz/Games/FlashMemoryScreen";
+import NumberMemoryScreen from "../../Screens/Offline/Egzersiz/Games/NumberMemoryScreen";
 
-type ScreenType =
-  | "home"
-  | "onlineGame"
-  | "offlineModes"
-  | "localMultiplayer"
-  | "exercise"
-  | "settings";
+
+export type RootStackParamList = {
+  HomeScreen: undefined;
+  GameScreen: {
+    boardSize?: "4x4" | "4x5" | "4x6" | "5x6";
+    playerCount?: 2 | 3 | 4;
+  };
+  OfflineModesScreen: undefined;
+  LocalMultiplayerScreen: undefined;
+  ExerciseFirst: undefined;
+    SequenceMemoryScreen: undefined;
+    FlashMemoryScreen: undefined;
+    NumberMemoryScreen: undefined;
+
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
-  const [screen, setScreen] = useState<ScreenType>("home");
-
-  const [boardSize, setBoardSize] = useState<BoardSize>("4x4");
-  const [playerCount, setPlayerCount] = useState<PlayerCount>(2);
-
   return (
-    <>
-      {screen === "home" && (
-        <HomeScreen
-          onOnlinePlay={() => setScreen("onlineGame")}
-          onOfflineModes={() => setScreen("offlineModes")}
-          onSettings={() => setScreen("settings")}
-        />
-      )}
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="HomeScreen"
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      >
+        <Stack.Screen name="HomeScreen" component={HomeScreen} />
 
-      {screen === "onlineGame" && (
-        <GameScreen onBack={() => setScreen("home")} />
-      )}
 
-      {screen === "offlineModes" && (
-        <OfflineModesScreen
-          onLocalMultiplayer={() => setScreen("localMultiplayer")}
-          onExercise={() => setScreen("exercise")}
-          onHome={() => setScreen("home")}
-        />
-      )}
+        <Stack.Screen name="GameScreen" component={GameScreen} />
 
-      {screen === "localMultiplayer" && (
-        <LocalMultiplayerScreen
-          onBack={() => setScreen("offlineModes")}
-          onStartGame={(selectedBoardSize, selectedPlayerCount) => {
-            setBoardSize(selectedBoardSize);
-            setPlayerCount(selectedPlayerCount);
-            setScreen("exercise");
-          }}
+        <Stack.Screen
+          name="OfflineModesScreen"
+          component={OfflineModesScreen}
         />
-      )}
 
-      {screen === "exercise" && (
-        <GameScreen
-          onBack={() => setScreen("offlineModes")}
-          boardSize={boardSize}
-          playerCount={playerCount}
+        <Stack.Screen
+          name="LocalMultiplayerScreen"
+          component={LocalMultiplayerScreen}
         />
-      )}
-    </>
+
+<Stack.Screen
+          name="FlashMemoryScreen"
+          component={FlashMemoryScreen}
+        />
+
+<Stack.Screen
+          name="NumberMemoryScreen"
+          component={NumberMemoryScreen}
+        />
+
+        <Stack.Screen name="ExerciseFirst" component={ExerciseFirst} />
+
+        <Stack.Screen name="SequenceMemoryScreen" component={SequenceMemoryScreen}/>
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
