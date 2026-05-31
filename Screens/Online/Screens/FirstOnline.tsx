@@ -76,7 +76,7 @@ await updateDoc(doc(firestore, "users", user.uid), {
   const leagues = [
     {
       name: "Çaylak",
-      cost: 0,
+      cost: 100,
       requiredPoints: 0,
       screen: "FirstCaylak",
       icon: "cards-playing-outline",
@@ -85,14 +85,14 @@ await updateDoc(doc(firestore, "users", user.uid), {
       name: "Kart Ustası",
       cost: 300,
       requiredPoints: 250,
-      screen: "KartUstasiOnline",
+      screen: "FirstUsta",
       icon: "cards",
     },
     {
       name: "Hafıza Avcısı",
       cost: 600,
       requiredPoints: 700,
-      screen: "HafizaAvcisiOnline",
+      screen: "FirstHafiza",
       icon: "brain",
     },
     {

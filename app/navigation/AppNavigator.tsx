@@ -25,6 +25,21 @@ import CaylakGameScreen from "../../Screens/Online/Screens/Caylak/Game/CaylakGam
 import CaylakWinScreen from "../../Screens/Online/Screens/Caylak/Game/CaylakWinScreen";
 
 
+import UstaGameScreen from "../../Screens/Online/Screens/Usta/Game/UstaGameScreen";
+import UstaLoseScreen from "../../Screens/Online/Screens/Usta/Game/UstaLoseScreen";
+import UstaWinScreen from "../../Screens/Online/Screens/Usta/Game/UstaWinScreen";
+import UstaDrawScreen from "../../Screens/Online/Screens/Usta/Game/UstaDrawScreen";
+
+import FirstUsta from "../../Screens/Online/Screens/Usta/FirstUsta";
+import UstaLigi from "../../Screens/Online/Screens/Usta/UstaLigi";
+
+import HafizaGameScreen from "../../Screens/Online/Screens/Hafiza/Game/HafizaGameScreen";
+import HafizaDrawScreen from "../../Screens/Online/Screens/Hafiza/Game/HafizaDrawScreen";
+import HafizaLoseScreen from "../../Screens/Online/Screens/Hafiza/Game/HafizaLoseScreen";
+import HafizaWinScreen from "../../Screens/Online/Screens/Hafiza/Game/HafizaWinScreen";
+
+import FirstHafiza from "../../Screens/Online/Screens/Hafiza/FirstHafiza";
+import HafizaLigi from "../../Screens/Online/Screens/Hafiza/HafizaLigi";
 
 
 export type RootStackParamList = {
@@ -53,6 +68,18 @@ export type RootStackParamList = {
   CaylakWinScreen: undefined;
   CaylakLoseScreen: undefined;
   CaylakGameScreen: undefined;
+  FirstUsta: undefined;
+  UstaLigi: undefined;
+  UstaDrawScreen: undefined;
+  UstaWinScreen: undefined;
+  UstaLoseScreen: undefined;
+  UstaGameScreen: undefined;
+  HafizaGameScreen: undefined;
+  HafizaDrawScreen: undefined;
+  HafizaLoseScreen: undefined;
+  HafizaWinScreen: undefined;
+  FirstHafiza: undefined;
+  HafizaLigi: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -93,6 +120,20 @@ export default function AppNavigator() {
         <Stack.Screen name="CaylakLoseScreen" component={CaylakLoseScreen} />
         <Stack.Screen name="CaylakWinScreen" component={CaylakWinScreen} />
         <Stack.Screen name="CaylakGameScreen" component={CaylakGameScreen} />
+
+        <Stack.Screen name="FirstUsta" component={FirstUsta} />
+        <Stack.Screen name="UstaLigi" component={UstaLigi} />
+        <Stack.Screen name="UstaDrawScreen" component={UstaDrawScreen} />
+        <Stack.Screen name="UstaWinScreen" component={UstaWinScreen} />
+        <Stack.Screen name="UstaLoseScreen" component={UstaLoseScreen} />
+        <Stack.Screen name="UstaGameScreen" component={UstaGameScreen} />
+
+        <Stack.Screen name="HafizaGameScreen" component={HafizaGameScreen} />
+        <Stack.Screen name="HafizaDrawScreen" component={HafizaDrawScreen} />
+        <Stack.Screen name="HafizaLoseScreen" component={HafizaLoseScreen} />
+        <Stack.Screen name="HafizaWinScreen" component={HafizaWinScreen} />
+        <Stack.Screen name="FirstHafiza" component={FirstHafiza} />
+        <Stack.Screen name="HafizaLigi" component={HafizaLigi} />
 
       </Stack.Navigator>
     </NavigationContainer>
