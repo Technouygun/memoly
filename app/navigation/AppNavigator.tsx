@@ -41,6 +41,21 @@ import HafizaWinScreen from "../../Screens/Online/Screens/Hafiza/Game/HafizaWinS
 import FirstHafiza from "../../Screens/Online/Screens/Hafiza/FirstHafiza";
 import HafizaLigi from "../../Screens/Online/Screens/Hafiza/HafizaLigi";
 
+import ZihinGameScreen from "../../Screens/Online/Screens/Zihin/Game/ZihinGameScreen";
+import ZihinDrawScreen from "../../Screens/Online/Screens/Zihin/Game/ZihinDrawScreen";
+import ZihinLoseScreen from "../../Screens/Online/Screens/Zihin/Game/ZihinLoseScreen";
+import ZihinWinScreen from "../../Screens/Online/Screens/Zihin/Game/ZihinWinScreen";
+
+import ZihinLigi from "../../Screens/Online/Screens/Zihin/ZihinLigi";
+import FirstZihin from "../../Screens/Online/Screens/Zihin/FirstZihin";
+
+import FirstZihinFinal from "../../Screens/Online/Screens/Final/FirstZihinFinal";
+import ZihinFinalLigi from "../../Screens/Online/Screens/Final/ZihinFinalLigi";
+import ZihinFinalDrawScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalDrawScreen";
+import ZihinFinalLoseScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalLoseScreen";
+import ZihinFinalWinScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalWinScreen";
+import ZihinFinalGameScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalGameScreen";
+
 
 export type RootStackParamList = {
   AuthChoiceScreen: undefined;
@@ -80,6 +95,18 @@ export type RootStackParamList = {
   HafizaWinScreen: undefined;
   FirstHafiza: undefined;
   HafizaLigi: undefined;
+  FirstZihin: undefined;
+  ZihinLigi: undefined;
+  ZihinDrawScreen: undefined;
+  ZihinLoseScreen: undefined;
+  ZihinWinScreen: undefined;
+  ZihinGameScreen: undefined;
+  FirstZihinFinal: undefined;
+  ZihinFinalLigi: undefined;
+  ZihinFinalDrawScreen: undefined;
+  ZihinFinalLoseScreen: undefined;
+  ZihinFinalWinScreen: undefined;
+  ZihinFinalGameScreen: undefined;  
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -134,6 +161,20 @@ export default function AppNavigator() {
         <Stack.Screen name="HafizaWinScreen" component={HafizaWinScreen} />
         <Stack.Screen name="FirstHafiza" component={FirstHafiza} />
         <Stack.Screen name="HafizaLigi" component={HafizaLigi} />
+      
+        <Stack.Screen name="FirstZihin" component={FirstZihin} />
+        <Stack.Screen name="ZihinLigi" component={ZihinLigi} />
+        <Stack.Screen name="ZihinDrawScreen" component={ZihinDrawScreen} />
+        <Stack.Screen name="ZihinLoseScreen" component={ZihinLoseScreen} />
+        <Stack.Screen name="ZihinWinScreen" component={ZihinWinScreen} />
+        <Stack.Screen name="ZihinGameScreen" component={ZihinGameScreen} />
+
+        <Stack.Screen name="FirstZihinFinal" component={FirstZihinFinal} />
+        <Stack.Screen name="ZihinFinalLigi" component={ZihinFinalLigi} />
+        <Stack.Screen name="ZihinFinalDrawScreen" component={ZihinFinalDrawScreen} />
+        <Stack.Screen name="ZihinFinalLoseScreen" component={ZihinFinalLoseScreen} />
+        <Stack.Screen name="ZihinFinalWinScreen" component={ZihinFinalWinScreen} />
+        <Stack.Screen name="ZihinFinalGameScreen" component={ZihinFinalGameScreen} />
 
       </Stack.Navigator>
     </NavigationContainer>

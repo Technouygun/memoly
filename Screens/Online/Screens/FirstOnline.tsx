@@ -16,12 +16,18 @@ import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
 
 const getAvatarSource = (avatarName?: string) => {
   switch (avatarName) {
-    case "avatar1.png": return require("../../../assets/avatars/avatar1.jpg");
-    case "avatar2.png": return require("../../../assets/avatars/avatar2.jpg");
-    case "avatar3.png": return require("../../../assets/avatars/avatar3.jpg");
-    case "avatar4.png": return require("../../../assets/avatars/avatar4.jpg");
-    case "avatar5.png": return require("../../../assets/avatars/avatar5.jpg");
-    default: return require("../../../assets/avatars/avatar1.jpg");
+    case "avatar1.png":
+      return require("../../../assets/avatars/avatar1.jpg");
+    case "avatar2.png":
+      return require("../../../assets/avatars/avatar2.jpg");
+    case "avatar3.png":
+      return require("../../../assets/avatars/avatar3.jpg");
+    case "avatar4.png":
+      return require("../../../assets/avatars/avatar4.jpg");
+    case "avatar5.png":
+      return require("../../../assets/avatars/avatar5.jpg");
+    default:
+      return require("../../../assets/avatars/avatar1.jpg");
   }
 };
 
@@ -30,6 +36,7 @@ export default function FirstOnline() {
 
   const [coins, setCoins] = useState<number>(0);
   const [points, setPoints] = useState<number>(0);
+  const [zihinFinalTicket, setZihinFinalTicket] = useState<number>(0);
   const [avatar, setAvatar] = useState<any>(null);
 
   useEffect(() => {
@@ -37,13 +44,14 @@ export default function FirstOnline() {
       const user = auth.currentUser;
       if (!user) return;
 
-const userRef = doc(firestore, "users", user.uid);
+      const userRef = doc(firestore, "users", user.uid);
       const snap = await getDoc(userRef);
 
       if (snap.exists()) {
         const data = snap.data();
         setCoins(data.coins ?? 300);
         setPoints(data.onlinePoints ?? 0);
+        setZihinFinalTicket(data.zihinFinalTicket ?? 0);
         setAvatar(getAvatarSource(data.avatar));
       }
     };
@@ -55,9 +63,9 @@ const userRef = doc(firestore, "users", user.uid);
     const user = auth.currentUser;
     if (!user) return;
 
-  await updateDoc(doc(firestore, "users", user.uid), {
-  coins: increment(100),
-});
+    await updateDoc(doc(firestore, "users", user.uid), {
+      coins: increment(100),
+    });
 
     setCoins((prev) => prev + 100);
     Alert.alert("Tebrikler!", "100 jeton kazandın.");
@@ -67,9 +75,10 @@ const userRef = doc(firestore, "users", user.uid);
     const user = auth.currentUser;
     if (!user) return;
 
-await updateDoc(doc(firestore, "users", user.uid), {
-  "jokers.extraTurn": increment(1),
-});
+    await updateDoc(doc(firestore, "users", user.uid), {
+      "jokers.extraTurn": increment(1),
+    });
+
     Alert.alert("Tebrikler!", "1 joker kazandın.");
   };
 
@@ -99,15 +108,16 @@ await updateDoc(doc(firestore, "users", user.uid), {
       name: "Zihin Dehası",
       cost: 1500,
       requiredPoints: 1500,
-      screen: "ZihinDehasiOnline",
+      screen: "FirstZihin",
       icon: "trophy",
     },
     {
-      name: "Efsane Lig",
-      cost: 3000,
+      name: "Zihin Şampiyonası",
+      cost: 1,
       requiredPoints: 3000,
-      screen: "EfsaneOnline",
+      screen: "FirstZihinFinal",
       icon: "crown",
+      finalTicketRequired: true,
     },
   ];
 
@@ -134,6 +144,7 @@ await updateDoc(doc(firestore, "users", user.uid), {
 
         <Text style={styles.coinText}>Jeton: {coins}</Text>
         <Text style={styles.pointText}>Puan: {points}</Text>
+        <Text style={styles.ticketText}>Zihin Final Bileti: {zihinFinalTicket}</Text>
 
         <View style={styles.rewardRow}>
           <TouchableOpacity style={styles.rewardCard} onPress={giveJokerReward}>
@@ -156,7 +167,9 @@ await updateDoc(doc(firestore, "users", user.uid), {
         </View>
 
         {leagues.map((league) => {
-          const canEnter = coins >= league.cost && points >= league.requiredPoints;
+          const canEnter = league.finalTicketRequired
+            ? zihinFinalTicket >= league.cost && points >= league.requiredPoints
+            : coins >= league.cost && points >= league.requiredPoints;
 
           return (
             <TouchableOpacity
@@ -166,14 +179,16 @@ await updateDoc(doc(firestore, "users", user.uid), {
               style={[styles.leagueCard, !canEnter && styles.lockedCard]}
             >
               <LinearGradient colors={["#ffe36a", "#fff7d0"]} style={styles.leagueImage}>
-                <Icon name={league.icon} size={72} color="#2b2030" />
+                <Icon name={league.icon as any} size={72} color="#2b2030" />
               </LinearGradient>
 
               <Text style={styles.leagueName}>{league.name}</Text>
 
               <View style={styles.requirements}>
                 <View style={styles.reqBox}>
-                  <Text style={styles.reqText}>💰 {league.cost}</Text>
+                  <Text style={styles.reqText}>
+                    {league.finalTicketRequired ? `🎫 ${league.cost}` : `💰 ${league.cost}`}
+                  </Text>
                 </View>
 
                 <View style={styles.reqBox}>
@@ -183,7 +198,11 @@ await updateDoc(doc(firestore, "users", user.uid), {
               </View>
 
               {!canEnter && (
-                <Text style={styles.lockText}>Yetersiz jeton veya puan</Text>
+                <Text style={styles.lockText}>
+                  {league.finalTicketRequired
+                    ? "Zihin Final Bileti veya puan yetersiz"
+                    : "Yetersiz jeton veya puan"}
+                </Text>
               )}
             </TouchableOpacity>
           );
@@ -251,6 +270,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#fff",
     fontStyle: "italic",
+  },
+  ticketText: {
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#facc15",
     marginBottom: 22,
   },
   rewardRow: {
@@ -333,6 +357,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: "#a00",
     fontWeight: "800",
+    textAlign: "center",
   },
   bottomBar: {
     position: "absolute",
