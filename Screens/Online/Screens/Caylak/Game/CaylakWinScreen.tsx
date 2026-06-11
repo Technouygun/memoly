@@ -5,12 +5,13 @@ import { getAuth } from "firebase/auth";
 import { ref, runTransaction } from "firebase/database";
 import { doc, updateDoc, increment } from "firebase/firestore";
 import { db, firestore } from "../../../../../firebaseConfig";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 export default function CaylakWinScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { roomId } = route.params;
-
+const { t } = useLanguage();
   const claimedRef = useRef(false);
 
   useEffect(() => {
@@ -45,15 +46,16 @@ export default function CaylakWinScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>🏆</Text>
-      <Text style={styles.title}>Kazandın!</Text>
-      <Text style={styles.text}>+200 Jeton</Text>
-      <Text style={styles.text}>+50 Online Puan</Text>
+      <Text style={styles.title}>{t.youWon}</Text>
+
+      <Text style={styles.text}>+200 Coin</Text>
+      <Text style={styles.text}>+50 {t.onlinePoint}</Text>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.replace("FirstOnline")}
+        onPress={() => navigation.replace("OnlineTabs")}
       >
-        <Text style={styles.buttonText}>Online Menüye Dön</Text>
+        <Text style={styles.buttonText}>{t.onlineMenu}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,125 +1,281 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { useLanguage } from "../language/LanguageContext";
 
 export default function OfflineModesScreen() {
   const navigation = useNavigation<any>();
+  const { t } = useLanguage();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>MEMOLY</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <View style={styles.glowOne} />
+      <View style={styles.glowTwo} />
 
-      <Text style={styles.title}>Çevrimdışı Modlar</Text>
-
-      <Text style={styles.description}>
-        İnternetsiz oynayabileceğin oyun modunu seç.
-      </Text>
-
-      <View style={styles.buttons}>
+      <View style={styles.header}>
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate("LocalMultiplayerScreen")}
+          style={styles.backButton}
+          onPress={() => navigation.navigate("HomeScreen")}
+          activeOpacity={0.85}
         >
-          <Text style={styles.primaryButtonText}>Tek Telefon Çok Kişi</Text>
+          <Text style={styles.backText}>‹</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.logo}>MEMOLY</Text>
+        <Text style={styles.subLogo}>OFFLINE ZONE</Text>
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.title}>{t.offlineModesTitle}</Text>
+        <Text style={styles.description}>{t.offlineModesDescription}</Text>
+
+        <TouchableOpacity
+          style={styles.modeCard}
+          onPress={() => navigation.navigate("LocalMultiplayerScreen")}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={["#8E7CFF", "#6C5CE7", "#00D2FF"]}
+            style={styles.cardGradient}
+          >
+            <View style={styles.iconBox}>
+              <Text style={styles.icon}>⚔️</Text>
+            </View>
+
+            <View style={styles.cardTextArea}>
+              <Text style={styles.cardTitle}>{t.localMultiplayer}</Text>
+              <Text style={styles.cardDesc}>Aynı cihazda arkadaşınla hafıza düellosu yap.</Text>
+            </View>
+
+            <Text style={styles.arrow}>›</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={styles.secondaryCard}
           onPress={() => navigation.navigate("ExerciseFirst")}
+          activeOpacity={0.9}
         >
-          <Text style={styles.secondaryButtonText}>Egzersiz</Text>
+          <View style={styles.iconBoxDark}>
+            <Text style={styles.icon}>🧠</Text>
+          </View>
+
+          <View style={styles.cardTextArea}>
+            <Text style={styles.secondaryTitle}>{t.exercise}</Text>
+            <Text style={styles.secondaryDesc}>Egzersizlerle odaklanmanı ve hafızanı güçlendir.</Text>
+          </View>
+
+          <Text style={styles.arrowLight}>›</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.homeButton}
-        onPress={() => navigation.navigate("HomeScreen")}
-      >
-        <Text style={styles.homeButtonText}>Anasayfa</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={styles.bottomInfo}>
+        <Text style={styles.bottomText}>⚡ İnternetsiz, hızlı ve eğlenceli oyun deneyimi</Text>
+      </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: "#10101A",
-    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingTop: 54,
+    paddingBottom: 28,
+  },
+
+  glowOne: {
+    position: "absolute",
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: "rgba(108, 92, 231, 0.35)",
+    top: -80,
+    right: -90,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    backgroundColor: "rgba(0, 210, 255, 0.18)",
+    bottom: 80,
+    left: -100,
+  },
+
+  header: {
     alignItems: "center",
   },
 
+  backButton: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  backText: {
+    color: "#FFFFFF",
+    fontSize: 34,
+    fontWeight: "700",
+    marginTop: -3,
+  },
+
   logo: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: "900",
-    color: "#6C5CE7",
-    marginBottom: 10,
+    color: "#FFFFFF",
+    letterSpacing: 3,
+  },
+
+  subLogo: {
+    marginTop: 5,
+    color: "#00D2FF",
+    fontSize: 12,
+    fontWeight: "900",
     letterSpacing: 2,
   },
 
+  content: {
+    flex: 1,
+    justifyContent: "center",
+  },
+
   title: {
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: "900",
     color: "#FFFFFF",
+    textAlign: "center",
     marginBottom: 10,
   },
 
   description: {
     fontSize: 15,
-    color: "#CFCFE6",
+    color: "#D8D8F0",
     textAlign: "center",
-    marginBottom: 36,
     lineHeight: 22,
+    marginBottom: 34,
   },
 
-  buttons: {
+  modeCard: {
     width: "100%",
-    gap: 16,
-    marginBottom: 40,
+    borderRadius: 26,
+    overflow: "hidden",
+    marginBottom: 16,
+    shadowColor: "#00D2FF",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 10,
   },
 
-  primaryButton: {
-    width: "100%",
-    backgroundColor: "#6C5CE7",
-    paddingVertical: 18,
-    borderRadius: 18,
+  cardGradient: {
+    minHeight: 112,
+    padding: 18,
+    borderRadius: 26,
+    flexDirection: "row",
     alignItems: "center",
   },
 
-  primaryButtonText: {
+  secondaryCard: {
+    minHeight: 112,
+    padding: 18,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  iconBox: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  iconBoxDark: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,210,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  icon: {
+    fontSize: 28,
+  },
+
+  cardTextArea: {
+    flex: 1,
+  },
+
+  cardTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "900",
   },
 
-  secondaryButton: {
-    width: "100%",
-    backgroundColor: "#1B1B2B",
-    paddingVertical: 18,
-    borderRadius: 18,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#2E2E44",
+  cardDesc: {
+    marginTop: 5,
+    color: "#F2F2FF",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
   },
 
-  secondaryButtonText: {
+  secondaryTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 19,
+    fontWeight: "900",
   },
 
-  homeButton: {
-    position: "absolute",
-    bottom: 34,
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 16,
+  secondaryDesc: {
+    marginTop: 5,
+    color: "#CFCFE6",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+
+  arrow: {
+    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+
+  arrowLight: {
+    color: "#00D2FF",
+    fontSize: 36,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+
+  bottomInfo: {
     alignItems: "center",
   },
 
-  homeButtonText: {
+  bottomText: {
     color: "#AFAFD1",
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "800",
+    textAlign: "center",
   },
 });

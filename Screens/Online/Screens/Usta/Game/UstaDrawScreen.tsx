@@ -1,24 +1,25 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { doc, increment, updateDoc } from "firebase/firestore";
 import { ref, runTransaction } from "firebase/database";
 import { firestore, db } from "../../../../../firebaseConfig";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 export default function UstaDrawScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { roomId } = route.params;
+  const { t } = useLanguage();
 
   const rewardedRef = useRef(false);
 
   useEffect(() => {
     const giveDrawReward = async () => {
       const user = getAuth().currentUser;
-
-      if (!user) return;
-      if (rewardedRef.current) return;
+      if (!user || rewardedRef.current) return;
 
       rewardedRef.current = true;
 
@@ -47,67 +48,149 @@ export default function UstaDrawScreen() {
     giveDrawReward();
   }, []);
 
+  const goOnlineHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
+    });
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.emoji}>🤝</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <Text style={styles.title}>Berabere!</Text>
+        <View style={styles.card}>
+          <View style={styles.badge}>
+            <Text style={styles.emoji}>🤝</Text>
+          </View>
 
-      <Text style={styles.text}>İki oyuncu da aynı sayıda eş buldu.</Text>
+          <Text style={styles.title}>{t.draw}</Text>
+          <Text style={styles.text}>{t.cardMasterDrawMessage}</Text>
 
-      <Text style={styles.rewardText}>+500 Coin</Text>
+          <View style={styles.rewardBox}>
+            <Text style={styles.rewardLabel}>Beraberlik Ödülü</Text>
+            <Text style={styles.rewardValue}>+500 Coin</Text>
+          </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.replace("FirstOnline")}
-      >
-        <Text style={styles.buttonText}>Online Menüye Dön</Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity style={styles.primaryButton} onPress={goOnlineHome}>
+            <LinearGradient
+              colors={["#8E7CFF", "#6C5CE7", "#00D2FF"]}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>{t.onlineMenu}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1e1b4b",
+  container: { flex: 1 },
+  safe: { flex: 1, paddingHorizontal: 24, justifyContent: "center" },
+
+  glowOne: {
+    position: "absolute",
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(142,124,255,0.26)",
+    top: -105,
+    right: -120,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(0,210,255,0.18)",
+    bottom: 90,
+    left: -120,
+  },
+
+  card: {
+    borderRadius: 32,
+    padding: 22,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  badge: {
+    width: 112,
+    height: 112,
+    borderRadius: 38,
+    backgroundColor: "rgba(0,210,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-  },
-  emoji: {
-    fontSize: 90,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 42,
-    color: "#facc15",
-    fontWeight: "900",
     marginBottom: 18,
   },
-  text: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 14,
-  },
-  rewardText: {
-    fontSize: 30,
-    color: "#22c55e",
+
+  emoji: { fontSize: 58 },
+
+  title: {
+    fontSize: 38,
+    color: "#FFFFFF",
     fontWeight: "900",
-    marginBottom: 26,
+    textAlign: "center",
+    marginBottom: 12,
   },
-  button: {
-    marginTop: 10,
-    backgroundColor: "#6366f1",
-    paddingVertical: 15,
-    paddingHorizontal: 28,
-    borderRadius: 18,
+
+  text: {
+    fontSize: 17,
+    color: "#D8D8F0",
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 18,
   },
+
+  rewardBox: {
+    width: "100%",
+    minHeight: 72,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,210,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.30)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+
+  rewardLabel: {
+    color: "#AFAFD1",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  rewardValue: {
+    marginTop: 3,
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+
+  primaryButton: {
+    width: "100%",
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+
+  buttonGradient: {
+    paddingVertical: 17,
+    alignItems: "center",
+  },
+
   buttonText: {
-    color: "#fff",
-    fontSize: 18,
+    color: "#FFFFFF",
+    fontSize: 17,
     fontWeight: "900",
   },
 });

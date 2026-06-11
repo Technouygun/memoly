@@ -1,21 +1,23 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 export default function CaylakLoseScreen() {
   const navigation = useNavigation<any>();
-
+const { t } = useLanguage();
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>😢</Text>
-      <Text style={styles.title}>Kaybettin</Text>
-      <Text style={styles.text}>Bu tur rakibin daha fazla eş buldu.</Text>
+      <Text style={styles.title}>{t.youLost}</Text>
+
+      <Text style={styles.text}>{t.loseMessage}</Text>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.replace("FirstOnline")}
+        onPress={() => navigation.replace("OnlineTabs")}
       >
-        <Text style={styles.buttonText}>Online Menüye Dön</Text>
+        <Text style={styles.buttonText}>{t.onlineMenu}</Text>
       </TouchableOpacity>
     </View>
   );

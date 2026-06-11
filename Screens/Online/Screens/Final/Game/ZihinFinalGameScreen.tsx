@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
+  SafeAreaView,
+  Dimensions,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { ref, onValue, update, get } from "firebase/database";
 import { db } from "../../../../../firebaseConfig";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 const EMOJIS = [
   "🍎", "🍌", "🍇", "🍓", "🍒", "🍉",
@@ -19,6 +22,13 @@ const EMOJIS = [
   "🥕", "🌽", "🥦", "🍔", "🍕", "🍟",
   "⚽", "🏀", "🎲", "🎯", "🚗", "🚀",
 ];
+
+const { width, height } = Dimensions.get("window");
+const CARD_GAP = 4;
+const CARD_SIZE = Math.min(
+  (width - 36 - CARD_GAP * 7) / 8,
+  (height - 210 - CARD_GAP * 5) / 6
+);
 
 type PlayerRole = "player1" | "player2";
 
@@ -41,7 +51,7 @@ export default function ZihinFinalGameScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { roomId } = route.params;
-
+  const { t } = useLanguage();
   const user = getAuth().currentUser;
 
   const [room, setRoom] = useState<any>(null);
@@ -55,18 +65,33 @@ export default function ZihinFinalGameScreen() {
 
   const roomRef = useMemo(() => ref(db, `zihinFinalRooms/${roomId}`), [roomId]);
 
+  const goOnlineHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
+    });
+  };
+
   useEffect(() => {
     if (!user) return;
 
     const unsub = onValue(roomRef, async (snap) => {
       if (!snap.exists()) {
-        Alert.alert("Oda bulunamadı", "Final oyun odası kapatılmış olabilir.");
-        navigation.replace("FirstOnline");
+        Alert.alert(
+          t.roomNotFound || "Oda bulunamadı",
+          t.finalRoomClosed || "Final odası kapatılmış olabilir."
+        );
+        goOnlineHome();
         return;
       }
 
       const data = snap.val();
       setRoom(data);
+
+      if (data.status === "exited") {
+        goOnlineHome();
+        return;
+      }
 
       const p1Uid = data.players?.player1?.uid;
       const p2Uid = data.players?.player2?.uid;
@@ -81,7 +106,10 @@ export default function ZihinFinalGameScreen() {
           cards: createDeck(),
           currentTurn: "player1",
           openCards: [],
-          scores: { player1: 0, player2: 0 },
+          scores: {
+            player1: 0,
+            player2: 0,
+          },
           status: "playing",
           turnStartedAt: Date.now(),
         });
@@ -158,13 +186,16 @@ export default function ZihinFinalGameScreen() {
     if (card.matchedBy) return;
 
     const openCards: CardType[] = room.openCards ?? [];
+    const alreadyOpen = openCards.some((item) => item.id === card.id);
 
-    if (openCards.some((item) => item.id === card.id)) return;
+    if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
     const newOpenCards = [...openCards, card];
 
-    await update(roomRef, { openCards: newOpenCards });
+    await update(roomRef, {
+      openCards: newOpenCards,
+    });
 
     if (newOpenCards.length === 2) {
       lockRef.current = true;
@@ -183,7 +214,10 @@ export default function ZihinFinalGameScreen() {
         if (isMatch) {
           const updatedCards = freshCards.map((item) => {
             if (item.id === first.id || item.id === second.id) {
-              return { ...item, matchedBy: myRole };
+              return {
+                ...item,
+                matchedBy: myRole,
+              };
             }
 
             return item;
@@ -216,7 +250,7 @@ export default function ZihinFinalGameScreen() {
         }
 
         lockRef.current = false;
-      }, 850);
+      }, 650);
     }
   };
 
@@ -227,10 +261,12 @@ export default function ZihinFinalGameScreen() {
 
   if (loading || !room?.cards) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#facc15" />
-        <Text style={styles.loadingText}>Zihin Final hazırlanıyor...</Text>
-      </View>
+      <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
+        <ActivityIndicator size="large" color="#FACC15" />
+        <Text style={styles.loadingText}>
+          {t.finalPreparing || "Final oyunu hazırlanıyor..."}
+        </Text>
+      </LinearGradient>
     );
   }
 
@@ -240,21 +276,57 @@ export default function ZihinFinalGameScreen() {
   const myTurn = room.currentTurn === myRole;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Zihin Dehası Final</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <View style={styles.scoreBox}>
-        <Text style={styles.scoreText}>Oyuncu 1: {p1Score}</Text>
-        <Text style={styles.scoreText}>Oyuncu 2: {p2Score}</Text>
-      </View>
+        <View style={styles.topLine}>
+          <TouchableOpacity
+            style={styles.exitButton}
+            onPress={async () => {
+              await update(roomRef, {
+                status: "exited",
+                exitedBy: user?.uid,
+              });
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.exitText}>‹</Text>
+          </TouchableOpacity>
 
-      <Text style={[styles.turnText, myTurn ? styles.myTurn : styles.opponentTurn]}>
-        {myTurn ? "Sıra sende" : "Rakip oynuyor"}
-      </Text>
+          <View style={styles.turnPill}>
+            <Text style={styles.turnLabel}>
+              {myTurn ? t.yourTurn || "SIRA SENDE" : t.opponentPlaying || "RAKİP OYNUYOR"}
+            </Text>
+            <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
+              {myTurn ? "SEN" : "RAKİP"}
+            </Text>
+          </View>
 
-      <Text style={styles.timerText}>Süre: {turnTimer}</Text>
+          <View style={styles.timerBox}>
+            <Text style={styles.timerNumber}>{turnTimer}</Text>
+            <Text style={styles.timerLabel}>SN</Text>
+          </View>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.modeBox}>
+          <Text style={styles.modeTitle}>ZİHİN FİNAL</Text>
+          <Text style={styles.modeSub}>6x8 Büyük Final Düellosu</Text>
+        </View>
+
+        <View style={styles.scoreRow}>
+          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
+            <Text style={styles.scoreLabel}>{room.players?.player1?.name || t.playerOne}</Text>
+            <Text style={styles.scoreValue}>{p1Score}</Text>
+          </View>
+
+          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
+            <Text style={styles.scoreLabel}>{room.players?.player2?.name || t.playerTwo}</Text>
+            <Text style={styles.scoreValue}>{p2Score}</Text>
+          </View>
+        </View>
+
         <View style={styles.board}>
           {cards.map((card) => {
             const open = isCardOpen(card);
@@ -268,7 +340,7 @@ export default function ZihinFinalGameScreen() {
                   card.matchedBy && styles.matchedCard,
                 ]}
                 onPress={() => handleCardPress(card)}
-                activeOpacity={0.8}
+                activeOpacity={0.82}
                 disabled={!myTurn || !!card.matchedBy}
               >
                 <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
@@ -276,95 +348,233 @@ export default function ZihinFinalGameScreen() {
             );
           })}
         </View>
-      </ScrollView>
-    </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+
+  safe: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+
   center: {
     flex: 1,
-    backgroundColor: "#1c1917",
     alignItems: "center",
     justifyContent: "center",
   },
+
   loadingText: {
-    color: "#fff",
+    color: "#FFFFFF",
     marginTop: 12,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#1c1917",
-    paddingTop: 50,
-    paddingHorizontal: 10,
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 30,
-    color: "#facc15",
-    fontWeight: "900",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  scoreBox: {
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-  },
-  scoreText: {
-    color: "#fff",
     fontSize: 16,
-    fontWeight: "800",
-  },
-  turnText: {
-    fontSize: 19,
     fontWeight: "900",
+  },
+
+  glowOne: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(250,204,21,0.22)",
+    top: -110,
+    right: -110,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(108,92,231,0.24)",
+    bottom: 45,
+    left: -110,
+  },
+
+  topLine: {
+    height: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+
+  exitButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+    backgroundColor: "rgba(239,68,68,0.20)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 7,
+  },
+
+  exitText: {
+    color: "#FFFFFF",
+    fontSize: 30,
+    fontWeight: "800",
+    marginTop: -4,
+  },
+
+  turnPill: {
+    flex: 1,
+    height: 38,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(250,204,21,0.30)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+
+  turnLabel: {
+    color: "#AFAFD1",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+
+  turnName: {
+    marginTop: 1,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
+  myTurn: {
+    color: "#22C55E",
+  },
+
+  opponentTurn: {
+    color: "#FB923C",
+  },
+
+  timerBox: {
+    width: 50,
+    height: 38,
+    borderRadius: 15,
+    backgroundColor: "rgba(250,204,21,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(250,204,21,0.40)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 7,
+  },
+
+  timerNumber: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+
+  timerLabel: {
+    color: "#FACC15",
+    fontSize: 8,
+    fontWeight: "900",
+  },
+
+  modeBox: {
+    height: 40,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(250,204,21,0.34)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 6,
   },
-  myTurn: {
-    color: "#22c55e",
-  },
-  opponentTurn: {
-    color: "#f97316",
-  },
-  timerText: {
-    fontSize: 26,
+
+  modeTitle: {
+    color: "#FACC15",
+    fontSize: 12,
     fontWeight: "900",
-    color: "#facc15",
-    marginBottom: 10,
+    letterSpacing: 1.5,
   },
-  scrollContent: {
-    paddingBottom: 30,
+
+  modeSub: {
+    color: "#D8D8F0",
+    fontSize: 10,
+    fontWeight: "800",
+    marginTop: 1,
   },
+
+  scoreRow: {
+    flexDirection: "row",
+    gap: 7,
+    marginBottom: 6,
+  },
+
+  scoreCard: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+
+  activeScore: {
+    backgroundColor: "rgba(250,204,21,0.14)",
+    borderColor: "#FACC15",
+  },
+
+  scoreLabel: {
+    color: "#BFC0DD",
+    fontSize: 10,
+    fontWeight: "900",
+    maxWidth: "100%",
+  },
+
+  scoreValue: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 1,
+  },
+
   board: {
-    width: "100%",
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: CARD_GAP,
     justifyContent: "center",
-    gap: 5,
+    alignContent: "center",
   },
+
   card: {
-    width: "15%",
-    aspectRatio: 1,
-    backgroundColor: "#92400e",
-    borderRadius: 10,
+    width: CARD_SIZE,
+    height: CARD_SIZE,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
+
   openCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(250,204,21,0.26)",
+    borderColor: "#FACC15",
   },
+
   matchedCard: {
-    backgroundColor: "#86efac",
+    backgroundColor: "rgba(34,197,94,0.30)",
+    borderColor: "#86EFAC",
   },
+
   cardText: {
-    fontSize: 22,
+    color: "#FFFFFF",
+    fontSize: Math.max(15, CARD_SIZE * 0.45),
     fontWeight: "900",
   },
 });

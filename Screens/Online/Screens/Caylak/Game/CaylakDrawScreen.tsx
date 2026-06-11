@@ -5,13 +5,14 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { doc, increment, updateDoc } from "firebase/firestore";
 import { ref, runTransaction } from "firebase/database";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 import { firestore, db } from "../../../../../firebaseConfig";
 
 export default function CaylakDrawScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-
+const { t } = useLanguage();
   const { roomId } = route.params;
 
   const rewardedRef = useRef(false);
@@ -57,19 +58,17 @@ export default function CaylakDrawScreen() {
     <View style={styles.container}>
       <Text style={styles.emoji}>🤝</Text>
 
-      <Text style={styles.title}>Berabere!</Text>
+      <Text style={styles.title}>{t.draw}</Text>
 
-      <Text style={styles.text}>
-        İki oyuncu da aynı sayıda eş buldu.
-      </Text>
+      <Text style={styles.text}>{t.drawMessage}</Text>
 
       <Text style={styles.rewardText}>+100 Coin</Text>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.replace("FirstOnline")}
+        onPress={() => navigation.replace("OnlineTabs")}
       >
-        <Text style={styles.buttonText}>Online Menüye Dön</Text>
+        <Text style={styles.buttonText}>{t.onlineMenu}</Text>
       </TouchableOpacity>
     </View>
   );

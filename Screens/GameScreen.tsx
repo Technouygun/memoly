@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,20 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Dimensions,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
-type BoardSize = "4x4" | "4x5" | "4x6" | "5x6";
+type BoardSize = "4x4" | "4x5" | "4x6" | "4x7";
 type PlayerCount = 2 | 3 | 4;
+type TurnTime = 7 | 14 | 0;
+
+type PlayerRouteInfo = {
+  id: number;
+  name: string;
+  color: string;
+};
 
 type CardItem = {
   id: number;
@@ -34,30 +43,54 @@ const emojis = [
   "🥑",
   "🍔",
   "🍕",
-  "⚽",
 ];
+
+const CARDS_PER_ROW = 4;
+const GAP = 5;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export default function GameScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
 
-  const boardSize: BoardSize = "4x4";
-  const playerCount: PlayerCount = 2;
+  const boardSize: BoardSize = route.params?.boardSize ?? "4x4";
+  const playerCount: PlayerCount = route.params?.playerCount ?? 2;
+  const turnTime: TurnTime = route.params?.turnTime ?? 7;
 
-  const { column, totalCards } = useMemo(() => {
+  const players: PlayerRouteInfo[] =
+    route.params?.players ??
+    Array.from({ length: playerCount }, (_, index) => ({
+      id: index + 1,
+      name: `${index + 1}. OYUNCU`,
+      color: "#00D2FF",
+    }));
+
+  const { totalCards } = useMemo(() => {
     const [rowValue, columnValue] = boardSize.split("x").map(Number);
-
-    return {
-      row: rowValue,
-      column: columnValue,
-      totalCards: rowValue * columnValue,
-    };
+    return { totalCards: rowValue * columnValue };
   }, [boardSize]);
+
+  const boardRows = Math.ceil(totalCards / CARDS_PER_ROW);
+
+  const cardSize = useMemo(() => {
+    const horizontalPadding = 18;
+    const boardWidth = SCREEN_WIDTH - horizontalPadding * 2;
+    const sizeByWidth =
+      (boardWidth - GAP * (CARDS_PER_ROW - 1)) / CARDS_PER_ROW;
+
+    const reservedSpace = turnTime === 0 ? 126 : 138;
+    const boardHeight = SCREEN_HEIGHT - reservedSpace;
+    const sizeByHeight = (boardHeight - GAP * (boardRows - 1)) / boardRows;
+
+    return Math.min(sizeByWidth, sizeByHeight);
+  }, [boardRows, turnTime]);
 
   const createCards = () => {
     const pairCount = totalCards / 2;
     const selectedEmojis = emojis.slice(0, pairCount);
 
-    const cards: CardItem[] = [...selectedEmojis, ...selectedEmojis]
+    return [...selectedEmojis, ...selectedEmojis]
       .sort(() => Math.random() - 0.5)
       .map((value, index) => ({
         id: index,
@@ -65,8 +98,6 @@ export default function GameScreen() {
         isOpen: false,
         isMatched: false,
       }));
-
-    return cards;
   };
 
   const [cards, setCards] = useState<CardItem[]>(createCards);
@@ -76,25 +107,53 @@ export default function GameScreen() {
     Array.from({ length: playerCount }, () => 0)
   );
   const [isLocked, setIsLocked] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(turnTime);
 
-  const handleCardPress = (cardIndex: number) => {
-    if (isLocked) return;
+  const activePlayer = players[currentPlayer - 1];
 
-    const selectedCard = cards[cardIndex];
+  const changePlayer = () => {
+    setCurrentPlayer((prevPlayer) =>
+      prevPlayer === playerCount ? 1 : prevPlayer + 1
+    );
 
-    if (selectedCard.isOpen || selectedCard.isMatched) return;
-    if (openedCards.length === 2) return;
+    if (turnTime !== 0) {
+      setRemainingTime(turnTime);
+    }
+  };
 
-    const newCards = [...cards];
-    newCards[cardIndex].isOpen = true;
+  useEffect(() => {
+    if (turnTime === 0) return;
 
-    const newOpenedCards = [...openedCards, cardIndex];
+    setRemainingTime(turnTime);
 
-    setCards(newCards);
-    setOpenedCards(newOpenedCards);
+    const interval = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          if (!isLocked) {
+            changePlayer();
+          }
 
-    if (newOpenedCards.length === 2) {
-      checkMatch(newOpenedCards, newCards);
+          return turnTime;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentPlayer, turnTime, isLocked]);
+
+  const finishGame = (finalScores: number[]) => {
+    const highestScore = Math.max(...finalScores);
+
+    const winners = finalScores
+      .map((score, index) => ({ player: players[index], score }))
+      .filter((item) => item.score === highestScore);
+
+    if (winners.length > 1) {
+      Alert.alert("Oyun Bitti", "Oyun berabere bitti!");
+    } else {
+      Alert.alert("Oyun Bitti", `${winners[0].player.name} kazandı!`);
     }
   };
 
@@ -118,9 +177,7 @@ export default function GameScreen() {
         setScores(updatedScores);
         setCards(updatedCards);
 
-        const isGameFinished = updatedCards.every((card) => card.isMatched);
-
-        if (isGameFinished) {
+        if (updatedCards.every((card) => card.isMatched)) {
           finishGame(updatedScores);
         }
       } else {
@@ -133,237 +190,352 @@ export default function GameScreen() {
 
       setOpenedCards([]);
       setIsLocked(false);
-    }, 800);
+    }, 600);
   };
 
-  const changePlayer = () => {
-    setCurrentPlayer((prevPlayer) => {
-      if (prevPlayer === playerCount) {
-        return 1;
-      }
+  const handleCardPress = (cardIndex: number) => {
+    if (isLocked) return;
 
-      return prevPlayer + 1;
-    });
-  };
+    const selectedCard = cards[cardIndex];
 
-  const finishGame = (finalScores: number[]) => {
-    const highestScore = Math.max(...finalScores);
+    if (selectedCard.isOpen || selectedCard.isMatched) return;
+    if (openedCards.length === 2) return;
 
-    const winners = finalScores
-      .map((score, index) => ({
-        player: index + 1,
-        score,
-      }))
-      .filter((item) => item.score === highestScore);
+    const newCards = [...cards];
+    newCards[cardIndex].isOpen = true;
 
-    if (winners.length > 1) {
-      Alert.alert("Oyun Bitti", "Oyun berabere bitti!");
-    } else {
-      Alert.alert("Oyun Bitti", `${winners[0].player}. Oyuncu kazandı!`);
+    const newOpenedCards = [...openedCards, cardIndex];
+
+    setCards(newCards);
+    setOpenedCards(newOpenedCards);
+
+    if (newOpenedCards.length === 2) {
+      checkMatch(newOpenedCards, newCards);
     }
   };
 
-  const restartGame = () => {
-    setCards(createCards());
-    setOpenedCards([]);
-    setCurrentPlayer(1);
-    setScores(Array.from({ length: playerCount }, () => 0));
-    setIsLocked(false);
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Hafıza Oyunu</Text>
+    <LinearGradient
+      colors={["#070712", "#101035", "#171753"]}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>Düzen: {boardSize}</Text>
-        <Text style={styles.infoText}>Oyuncu: {playerCount}</Text>
-      </View>
+        <View style={styles.topArea}>
+          <View style={styles.topLine}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.backText}>‹</Text>
+            </TouchableOpacity>
 
-      <Text style={styles.turnText}>Sıra: {currentPlayer}. Oyuncu</Text>
+            <View
+              style={[
+                styles.turnPill,
+                {
+                  borderColor: activePlayer?.color || "#00D2FF",
+                  backgroundColor: `${activePlayer?.color || "#00D2FF"}22`,
+                },
+              ]}
+            >
+              <Text style={styles.turnLabel}>SIRA</Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.turnText, { color: activePlayer?.color }]}
+              >
+                {activePlayer?.name}
+              </Text>
+            </View>
 
-      <View style={styles.scoreContainer}>
-        {scores.map((score, index) => (
-          <View
-            key={index}
-            style={[
-              styles.scoreBox,
-              currentPlayer === index + 1 && styles.activeScoreBox,
-            ]}
-          >
-            <Text style={styles.scoreTitle}>{index + 1}. Oyuncu</Text>
-            <Text style={styles.scoreText}>{score}</Text>
+            {turnTime !== 0 ? (
+              <View
+                style={[
+                  styles.timerPill,
+                  {
+                    borderColor: activePlayer?.color || "#00D2FF",
+                    backgroundColor: `${activePlayer?.color || "#00D2FF"}22`,
+                  },
+                ]}
+              >
+                <Text style={styles.timerNumber}>{remainingTime}</Text>
+                <Text style={[styles.timerLabel, { color: activePlayer?.color }]}>
+                  SN
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.emptyTimerBox} />
+            )}
           </View>
-        ))}
-      </View>
 
-      <View style={styles.board}>
-        {cards.map((card, index) => (
-          <TouchableOpacity
-            key={card.id}
-            style={[
-              styles.card,
-              {
-                width: `${100 / column - 2}%`,
-                aspectRatio: 1,
-              },
-              card.isOpen || card.isMatched
-                ? styles.openCard
-                : styles.closedCard,
-            ]}
-            onPress={() => handleCardPress(index)}
-          >
-            <Text style={styles.cardText}>
-              {card.isOpen || card.isMatched ? card.value : "?"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+          <View style={styles.scoreContainer}>
+            {scores.map((score, index) => {
+              const active = currentPlayer === index + 1;
+              const player = players[index];
 
-      <View style={styles.bottomButtons}>
-        <TouchableOpacity style={styles.restartButton} onPress={restartGame}>
-          <Text style={styles.buttonText}>Yeniden Başlat</Text>
-        </TouchableOpacity>
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.scoreBox,
+                    { borderColor: player?.color || "rgba(255,255,255,0.15)" },
+                    active && {
+                      backgroundColor: `${player?.color || "#00D2FF"}33`,
+                      borderColor: player?.color || "#00D2FF",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: player?.color || "#00D2FF" },
+                    ]}
+                  />
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Geri Dön</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.scorePlayer,
+                      active && { color: player?.color || "#FFFFFF" },
+                    ]}
+                  >
+                    {player?.name || `${index + 1}. OYUNCU`}
+                  </Text>
+
+                  <Text style={styles.scoreText}>{score}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.board}>
+          {cards.map((card, index) => {
+            const opened = card.isOpen || card.isMatched;
+
+            return (
+              <TouchableOpacity
+                key={card.id}
+                activeOpacity={0.85}
+                style={[
+                  styles.card,
+                  {
+                    width: cardSize,
+                    height: cardSize,
+                    borderRadius: Math.max(9, cardSize * 0.17),
+                  },
+                  opened ? styles.openCard : styles.closedCard,
+                  card.isMatched && styles.matchedCard,
+                ]}
+                onPress={() => handleCardPress(index)}
+              >
+                <Text
+                  style={[
+                    styles.cardText,
+                    {
+                      fontSize: opened ? cardSize * 0.42 : cardSize * 0.34,
+                    },
+                  ]}
+                >
+                  {opened ? card.value : "?"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#101827",
-    padding: 16,
   },
 
-  title: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textAlign: "center",
-    marginTop: 10,
-    marginBottom: 12,
+  safe: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
 
-  infoBox: {
+  glowOne: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(108,92,231,0.28)",
+    top: -100,
+    right: -100,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: "rgba(0,210,255,0.14)",
+    bottom: 30,
+    left: -95,
+  },
+
+  topArea: {
+    flexShrink: 0,
+    marginBottom: 4,
+  },
+
+  topLine: {
+    height: 42,
     flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#1F2937",
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 12,
+    alignItems: "center",
+    marginBottom: 6,
   },
 
-  infoText: {
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 7,
+  },
+
+  backText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 30,
     fontWeight: "700",
+    marginTop: -4,
+  },
+
+  turnPill: {
+    flex: 1,
+    height: 38,
+    borderRadius: 15,
+    borderWidth: 1.3,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+
+  turnLabel: {
+    color: "#AFAFD1",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.5,
   },
 
   turnText: {
-    color: "#FACC15",
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: "900",
-    textAlign: "center",
-    marginBottom: 12,
+    marginTop: 1,
+    maxWidth: "100%",
+  },
+
+  timerPill: {
+    width: 52,
+    height: 38,
+    borderRadius: 15,
+    borderWidth: 1.3,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 7,
+  },
+
+  emptyTimerBox: {
+    width: 52,
+    marginLeft: 7,
+  },
+
+  timerNumber: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+
+  timerLabel: {
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.8,
   },
 
   scoreContainer: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
+    gap: 5,
+    marginBottom: 2,
   },
 
   scoreBox: {
     flex: 1,
-    backgroundColor: "#1F2937",
-    paddingVertical: 10,
+    height: 46,
     borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1.2,
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#374151",
+    justifyContent: "center",
+    paddingHorizontal: 3,
   },
 
-  activeScoreBox: {
-    borderColor: "#FACC15",
-    backgroundColor: "#334155",
+  colorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 1,
   },
 
-  scoreTitle: {
-    color: "#D1D5DB",
-    fontSize: 13,
-    fontWeight: "700",
+  scorePlayer: {
+    color: "#BFC0DD",
+    fontSize: 8.5,
+    fontWeight: "900",
+    maxWidth: "100%",
   },
 
   scoreText: {
     color: "#FFFFFF",
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: "900",
+    marginTop: -1,
   },
 
   board: {
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: GAP,
     justifyContent: "center",
-    gap: 6,
-    flex: 1,
+    alignContent: "center",
   },
 
   card: {
-    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1.3,
   },
 
   closedCard: {
-    backgroundColor: "#374151",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.16)",
   },
 
   openCard: {
-    backgroundColor: "#22C55E",
+    backgroundColor: "rgba(0,210,255,0.26)",
+    borderColor: "#00D2FF",
+  },
+
+  matchedCard: {
+    backgroundColor: "rgba(34,197,94,0.28)",
+    borderColor: "#86EFAC",
   },
 
   cardText: {
-    fontSize: 28,
     fontWeight: "900",
     color: "#FFFFFF",
-  },
-
-  bottomButtons: {
-    gap: 10,
-    marginTop: 12,
-  },
-
-  restartButton: {
-    backgroundColor: "#FACC15",
-    paddingVertical: 15,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-
-  backButton: {
-    backgroundColor: "#374151",
-    paddingVertical: 15,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#111827",
-    fontSize: 17,
-    fontWeight: "900",
-  },
-
-  backButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "900",
   },
 });

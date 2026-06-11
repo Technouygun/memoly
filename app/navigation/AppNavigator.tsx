@@ -14,7 +14,7 @@ import ExerciseFirst from "../../Screens/Offline/Egzersiz/ExerciseFirst";
 import SequenceMemoryScreen from "../../Screens/Offline/Egzersiz/Games/SequenceMemoryScreen";
 import FlashMemoryScreen from "../../Screens/Offline/Egzersiz/Games/FlashMemoryScreen";
 import NumberMemoryScreen from "../../Screens/Offline/Egzersiz/Games/NumberMemoryScreen";
-import FirstOnline from "../../Screens/Online/Screens/FirstOnline";
+
 
 import FirstCaylak from "../../Screens/Online/Screens/Caylak/FirstCaylak";
 import CaylakLigi from "../../Screens/Online/Screens/Caylak/CaylakLigi";
@@ -56,7 +56,39 @@ import ZihinFinalLoseScreen from "../../Screens/Online/Screens/Final/Game/ZihinF
 import ZihinFinalWinScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalWinScreen";
 import ZihinFinalGameScreen from "../../Screens/Online/Screens/Final/Game/ZihinFinalGameScreen";
 
+import ProfileScreen from "../../Screens/Online/Screens/ProfilScreen";
 
+import FeedBack from "../../Screens/Online/Screens/FeeedBack";  
+
+import FirstFriend from "../../Screens/Online/Screens/Friend/FirstFriend";
+
+import FriendLig from "../../Screens/Online/Screens/Friend/FriendLig";
+
+import BasitFriendGame from "../../Screens/Online/Screens/Friend/Basit/Game/BasitFrendGame";
+import BasitFriendLoseScreen from "../../Screens/Online/Screens/Friend/Basit/Game/BasitFriendLoseScreen";
+import BasitFriendWinScreen from "../../Screens/Online/Screens/Friend/Basit/Game/BasitFriendWinScreen";
+import BasitFriendDrawScreen from "../../Screens/Online/Screens/Friend/Basit/Game/BasitFriendDrawScreen";
+
+import FirstBasitFriend from "../../Screens/Online/Screens/Friend/Basit/FirstBasitFriend";
+
+import FirstOrtaFriend from "../../Screens/Online/Screens/Friend/Orta/FirstOrtaFriend";
+import OrtaFriendGame from "../../Screens/Online/Screens/Friend/Orta/Game/OrtaFriendGame";
+import OrtaFriendLoseScreen from "../../Screens/Online/Screens/Friend/Orta/Game/OrtaFriendLoseScreen";
+import OrtaFriendWinScreen from "../../Screens/Online/Screens/Friend/Orta/Game/OrtaFriendWinScreen";
+import OrtaFriendDrawScreen from "../../Screens/Online/Screens/Friend/Orta/Game/OrtaFriendDrawScreen";
+
+import FirstZorFriend from "../../Screens/Online/Screens/Friend/Zor/FirstZorFriend";
+import ZorFriendGame from "../../Screens/Online/Screens/Friend/Zor/Game/ZorFriendGame";
+import ZorFriendLoseScreen from "../../Screens/Online/Screens/Friend/Zor/Game/ZorFriendLoseScreen";
+import ZorFriendWinScreen from "../../Screens/Online/Screens/Friend/Zor/Game/ZorFriendWinScreen";
+import ZorFriendDrawScreen from "../../Screens/Online/Screens/Friend/Zor/Game/ZorFriendDrawScreen";
+
+import LanguageScreen from "../../Screens/Settings/LanguageScreen";
+
+import SplashScreen from "../../SplashScreen";
+
+
+import OnlineTabs from "./OnlineTabs";
 export type RootStackParamList = {
   AuthChoiceScreen: undefined;
   GuestRegisterScreen: undefined;
@@ -76,7 +108,7 @@ export type RootStackParamList = {
   FlashMemoryScreen: undefined;
   NumberMemoryScreen: undefined;
   LoginScreen: undefined;
-  FirstOnline: undefined;
+
   FirstCaylak: undefined;
   CaylakLigi: undefined;
   CaylakDrawScreen: undefined;
@@ -107,6 +139,28 @@ export type RootStackParamList = {
   ZihinFinalLoseScreen: undefined;
   ZihinFinalWinScreen: undefined;
   ZihinFinalGameScreen: undefined;  
+  ProfileScreen: undefined;
+  FeedBack: undefined;
+  OnlineTabs: undefined;
+  FirstFriend: undefined;
+  FriendLig: undefined;
+  BasitFriendGame: undefined;
+  BasitFriendLoseScreen: undefined;
+  BasitFriendWinScreen: undefined;
+  BasitFriendDrawScreen: undefined;
+  FirstBasitFriend: undefined;
+  FirstOrtaFriend: undefined;
+  OrtaFriendGame: undefined;
+  OrtaFriendLoseScreen: undefined;
+  OrtaFriendWinScreen: undefined;
+  OrtaFriendDrawScreen: undefined;
+  FirstZorFriend: undefined;
+  ZorFriendGame: undefined;
+  ZorFriendLoseScreen: undefined;
+  ZorFriendWinScreen: undefined;
+  ZorFriendDrawScreen: undefined;
+  LanguageScreen: undefined;
+  SplashScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -115,12 +169,13 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="AuthChoiceScreen"
+        initialRouteName="SplashScreen"
         screenOptions={{
           headerShown: false,
           gestureEnabled: false,
         }}
       >
+         <Stack.Screen name="SplashScreen" component={SplashScreen} />
         <Stack.Screen name="AuthChoiceScreen" component={AuthChoiceScreen} />
         <Stack.Screen name="GuestRegisterScreen" component={GuestRegisterScreen} />
         <Stack.Screen name="EmailRegisterScreen" component={EmailRegisterScreen} />
@@ -136,7 +191,7 @@ export default function AppNavigator() {
         <Stack.Screen name="SequenceMemoryScreen" component={SequenceMemoryScreen} />
         <Stack.Screen name="FlashMemoryScreen" component={FlashMemoryScreen} />
         <Stack.Screen name="NumberMemoryScreen" component={NumberMemoryScreen} />
-        <Stack.Screen name="FirstOnline" component={FirstOnline} />
+
 
 
         <Stack.Screen name="FirstCaylak" component={FirstCaylak} />
@@ -175,6 +230,30 @@ export default function AppNavigator() {
         <Stack.Screen name="ZihinFinalLoseScreen" component={ZihinFinalLoseScreen} />
         <Stack.Screen name="ZihinFinalWinScreen" component={ZihinFinalWinScreen} />
         <Stack.Screen name="ZihinFinalGameScreen" component={ZihinFinalGameScreen} />
+
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+        <Stack.Screen name="FeedBack" component={FeedBack} />
+        <Stack.Screen name="OnlineTabs" component={OnlineTabs} />
+        <Stack.Screen name="FirstFriend" component={FirstFriend} />
+        <Stack.Screen name="FriendLig" component={FriendLig} />
+        <Stack.Screen name="BasitFriendGame" component={BasitFriendGame} />
+        <Stack.Screen name="BasitFriendLoseScreen" component={BasitFriendLoseScreen} />
+        <Stack.Screen name="BasitFriendWinScreen" component={BasitFriendWinScreen} />
+        <Stack.Screen name="BasitFriendDrawScreen" component={BasitFriendDrawScreen} />
+        <Stack.Screen name="FirstBasitFriend" component={FirstBasitFriend} />
+        <Stack.Screen name="FirstOrtaFriend" component={FirstOrtaFriend} />
+        <Stack.Screen name="OrtaFriendGame" component={OrtaFriendGame} />
+        <Stack.Screen name="OrtaFriendLoseScreen" component={OrtaFriendLoseScreen} />
+        <Stack.Screen name="OrtaFriendWinScreen" component={OrtaFriendWinScreen} />
+        <Stack.Screen name="OrtaFriendDrawScreen" component={OrtaFriendDrawScreen} />
+        <Stack.Screen name="FirstZorFriend" component={FirstZorFriend} />
+        <Stack.Screen name="ZorFriendGame" component={ZorFriendGame} />
+        <Stack.Screen name="ZorFriendLoseScreen" component={ZorFriendLoseScreen} />
+        <Stack.Screen name="ZorFriendWinScreen" component={ZorFriendWinScreen} />
+        <Stack.Screen name="ZorFriendDrawScreen" component={ZorFriendDrawScreen} />
+        <Stack.Screen name="LanguageScreen" component={LanguageScreen} />
+
+
 
       </Stack.Navigator>
     </NavigationContainer>

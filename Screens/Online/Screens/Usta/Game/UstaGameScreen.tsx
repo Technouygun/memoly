@@ -6,11 +6,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Dimensions,
+  SafeAreaView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { ref, onValue, update, get } from "firebase/database";
 import { db } from "../../../../../firebaseConfig";
+import { useLanguage } from "../../../../language/LanguageContext";
+
+const { width, height } = Dimensions.get("window");
 
 const EMOJIS = [
   "🍎",
@@ -26,6 +32,12 @@ const EMOJIS = [
   "🍋",
   "🍊",
 ];
+
+const CARD_GAP = 6;
+const CARD_SIZE = Math.min(
+  (width - 36 - CARD_GAP * 5) / 6,
+  (height - 190 - CARD_GAP * 3) / 4
+);
 
 type PlayerRole = "player1" | "player2";
 
@@ -48,6 +60,7 @@ export default function UstaGameScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { roomId } = route.params;
+  const { t } = useLanguage();
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -63,18 +76,33 @@ export default function UstaGameScreen() {
 
   const roomRef = useMemo(() => ref(db, `ustaRooms/${roomId}`), [roomId]);
 
+  const goOnlineHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
+    });
+  };
+
   useEffect(() => {
     if (!user) return;
 
     const unsub = onValue(roomRef, async (snap) => {
       if (!snap.exists()) {
-        Alert.alert("Oda bulunamadı", "Oyun odası kapatılmış olabilir.");
-        navigation.replace("FirstOnline");
+        Alert.alert(
+          t.roomNotFound || "Oda bulunamadı",
+          t.roomClosed || "Oyun odası kapatılmış olabilir."
+        );
+        goOnlineHome();
         return;
       }
 
       const data = snap.val();
       setRoom(data);
+
+      if (data.status === "exited") {
+        goOnlineHome();
+        return;
+      }
 
       const p1Uid = data.players?.player1?.uid;
       const p2Uid = data.players?.player2?.uid;
@@ -169,8 +197,8 @@ export default function UstaGameScreen() {
     if (card.matchedBy) return;
 
     const openCards: CardType[] = room.openCards ?? [];
-
     const alreadyOpen = openCards.some((item) => item.id === card.id);
+
     if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
@@ -236,22 +264,23 @@ export default function UstaGameScreen() {
         }
 
         lockRef.current = false;
-      }, 850);
+      }, 750);
     }
   };
 
   const isCardOpen = (card: CardType) => {
     const openCards: CardType[] = room?.openCards ?? [];
-
     return openCards.some((item) => item.id === card.id) || card.matchedBy;
   };
 
   if (loading || !room?.cards) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#a78bfa" />
-        <Text style={styles.loadingText}>Oyun hazırlanıyor...</Text>
-      </View>
+      <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
+        <ActivityIndicator size="large" color="#8E7CFF" />
+        <Text style={styles.loadingText}>
+          {t.cardMasterGamePreparing || "Kart Ustası oyunu hazırlanıyor..."}
+        </Text>
+      </LinearGradient>
     );
   }
 
@@ -261,125 +290,309 @@ export default function UstaGameScreen() {
   const myTurn = room.currentTurn === myRole;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Kart Ustası Ligi</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <View style={styles.scoreBox}>
-        <Text style={styles.scoreText}>Oyuncu 1: {p1Score}</Text>
-        <Text style={styles.scoreText}>Oyuncu 2: {p2Score}</Text>
-      </View>
+        <View style={styles.topLine}>
+          <TouchableOpacity
+            style={styles.exitButton}
+            onPress={async () => {
+              await update(roomRef, {
+                status: "exited",
+                exitedBy: user?.uid,
+              });
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.exitText}>‹</Text>
+          </TouchableOpacity>
 
-      <Text style={[styles.turnText, myTurn ? styles.myTurn : styles.opponentTurn]}>
-        {myTurn ? "Sıra sende" : "Rakip oynuyor"}
-      </Text>
+          <View style={styles.turnPill}>
+            <Text style={styles.turnLabel}>
+              {myTurn ? t.yourTurn || "SIRA SENDE" : t.opponentPlaying || "RAKİP OYNUYOR"}
+            </Text>
+            <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
+              {myTurn ? "SEN" : "RAKİP"}
+            </Text>
+          </View>
 
-      <Text style={styles.timerText}>Süre: {turnTimer}</Text>
+          <View style={styles.timerBox}>
+            <Text style={styles.timerNumber}>{turnTimer}</Text>
+            <Text style={styles.timerLabel}>SN</Text>
+          </View>
+        </View>
 
-      <View style={styles.board}>
-        {cards.map((card) => {
-          const open = isCardOpen(card);
+        <View style={styles.modeBox}>
+          <Text style={styles.modeTitle}>KART USTASI</Text>
+          <Text style={styles.modeSub}>6x4 Online Kart Düellosu</Text>
+        </View>
 
-          return (
-            <TouchableOpacity
-              key={card.id}
-              style={[
-                styles.card,
-                open && styles.openCard,
-                card.matchedBy && styles.matchedCard,
-              ]}
-              onPress={() => handleCardPress(card)}
-              activeOpacity={0.8}
-              disabled={!myTurn || !!card.matchedBy}
-            >
-              <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
+        <View style={styles.scoreRow}>
+          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
+            <Text numberOfLines={1} style={styles.scoreLabel}>
+              {room.players?.player1?.name || t.playerOne || "Oyuncu 1"}
+            </Text>
+            <Text style={styles.scoreValue}>{p1Score}</Text>
+          </View>
+
+          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
+            <Text numberOfLines={1} style={styles.scoreLabel}>
+              {room.players?.player2?.name || t.playerTwo || "Oyuncu 2"}
+            </Text>
+            <Text style={styles.scoreValue}>{p2Score}</Text>
+          </View>
+        </View>
+
+        <View style={styles.board}>
+          {cards.map((card) => {
+            const open = isCardOpen(card);
+
+            return (
+              <TouchableOpacity
+                key={card.id}
+                style={[
+                  styles.card,
+                  open && styles.openCard,
+                  card.matchedBy && styles.matchedCard,
+                ]}
+                onPress={() => handleCardPress(card)}
+                activeOpacity={0.82}
+                disabled={!myTurn || !!card.matchedBy}
+              >
+                <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+
+  safe: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+
   center: {
     flex: 1,
-    backgroundColor: "#1b1028",
     alignItems: "center",
     justifyContent: "center",
   },
+
   loadingText: {
-    color: "#fff",
+    color: "#FFFFFF",
     marginTop: 12,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#1b1028",
-    paddingTop: 54,
-    paddingHorizontal: 12,
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 30,
-    color: "#c4b5fd",
-    fontWeight: "900",
-    marginBottom: 12,
-  },
-  scoreBox: {
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 18,
-    padding: 13,
-    marginBottom: 12,
-  },
-  scoreText: {
-    color: "#fff",
     fontSize: 16,
-    fontWeight: "800",
-  },
-  turnText: {
-    fontSize: 19,
     fontWeight: "900",
+  },
+
+  glowOne: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(142,124,255,0.28)",
+    top: -110,
+    right: -110,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(0,210,255,0.18)",
+    bottom: 45,
+    left: -110,
+  },
+
+  topLine: {
+    height: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+
+  exitButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+    backgroundColor: "rgba(239,68,68,0.20)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 7,
+  },
+
+  exitText: {
+    color: "#FFFFFF",
+    fontSize: 30,
+    fontWeight: "800",
+    marginTop: -4,
+  },
+
+  turnPill: {
+    flex: 1,
+    height: 38,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(142,124,255,0.32)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+
+  turnLabel: {
+    color: "#AFAFD1",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+
+  turnName: {
+    marginTop: 1,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
+  myTurn: {
+    color: "#22C55E",
+  },
+
+  opponentTurn: {
+    color: "#FB923C",
+  },
+
+  timerBox: {
+    width: 50,
+    height: 38,
+    borderRadius: 15,
+    backgroundColor: "rgba(142,124,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(142,124,255,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 7,
+  },
+
+  timerNumber: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+
+  timerLabel: {
+    color: "#8E7CFF",
+    fontSize: 8,
+    fontWeight: "900",
+  },
+
+  modeBox: {
+    height: 40,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(142,124,255,0.36)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 6,
   },
-  myTurn: {
-    color: "#22c55e",
-  },
-  opponentTurn: {
-    color: "#f97316",
-  },
-  timerText: {
-    fontSize: 25,
+
+  modeTitle: {
+    color: "#8E7CFF",
+    fontSize: 12,
     fontWeight: "900",
-    color: "#facc15",
-    marginBottom: 12,
+    letterSpacing: 1.5,
   },
+
+  modeSub: {
+    color: "#D8D8F0",
+    fontSize: 10,
+    fontWeight: "800",
+    marginTop: 1,
+  },
+
+  scoreRow: {
+    flexDirection: "row",
+    gap: 7,
+    marginBottom: 6,
+  },
+
+  scoreCard: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+
+  activeScore: {
+    backgroundColor: "rgba(142,124,255,0.16)",
+    borderColor: "#8E7CFF",
+  },
+
+  scoreLabel: {
+    color: "#BFC0DD",
+    fontSize: 10,
+    fontWeight: "900",
+    maxWidth: "100%",
+  },
+
+  scoreValue: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 1,
+  },
+
   board: {
-    width: "100%",
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: CARD_GAP,
     justifyContent: "center",
-    gap: 7,
+    alignContent: "center",
   },
+
   card: {
-    width: "14.8%",
-    aspectRatio: 0.82,
-    backgroundColor: "#8b5cf6",
-    borderRadius: 12,
+    width: CARD_SIZE,
+    height: CARD_SIZE,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
+
   openCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(142,124,255,0.28)",
+    borderColor: "#8E7CFF",
   },
+
   matchedCard: {
-    backgroundColor: "#86efac",
+    backgroundColor: "rgba(34,197,94,0.30)",
+    borderColor: "#86EFAC",
   },
+
   cardText: {
-    fontSize: 25,
+    color: "#FFFFFF",
+    fontSize: Math.max(18, CARD_SIZE * 0.44),
     fontWeight: "900",
   },
 });

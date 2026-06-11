@@ -11,7 +11,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { ref, onValue, update, get } from "firebase/database";
 import { db } from "../../../../../firebaseConfig";
-
+import { useLanguage } from "../../../../language/LanguageContext";
 const EMOJIS = ["🍎", "🍌", "🍇", "🍓", "🍒", "🍉", "🥝", "🍍"];
 
 type PlayerRole = "player1" | "player2";
@@ -35,7 +35,7 @@ export default function CaylakGameScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { roomId } = route.params;
-
+const { t } = useLanguage();
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -55,8 +55,8 @@ export default function CaylakGameScreen() {
 
     const unsub = onValue(roomRef, async (snap) => {
       if (!snap.exists()) {
-        Alert.alert("Oda bulunamadı", "Oyun odası kapatılmış olabilir.");
-        navigation.replace("FirstOnline");
+        Alert.alert(t.roomNotFound, t.roomClosed);
+        navigation.replace("OnlineTabs");
         return;
       }
 
@@ -233,7 +233,7 @@ export default function CaylakGameScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#facc15" />
-        <Text style={styles.loadingText}>Oyun hazırlanıyor...</Text>
+        <Text style={styles.loadingText}>{t.gamePreparing}</Text>
       </View>
     );
   }
@@ -245,18 +245,19 @@ export default function CaylakGameScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Çaylak Ligi</Text>
+      <Text style={styles.title}>{t.rookieLeagueTitle}</Text>
 
       <View style={styles.scoreBox}>
-        <Text style={styles.scoreText}>Oyuncu 1: {p1Score}</Text>
-        <Text style={styles.scoreText}>Oyuncu 2: {p2Score}</Text>
+       <Text style={styles.scoreText}>{t.playerOne}: {p1Score}</Text>
+        <Text style={styles.scoreText}>{t.playerTwo}: {p2Score}</Text>
+
       </View>
 
       <Text style={[styles.turnText, myTurn ? styles.myTurn : styles.opponentTurn]}>
-        {myTurn ? "Sıra sende" : "Rakip oynuyor"}
-      </Text>
+  {myTurn ? t.yourTurn : t.opponentPlaying}
+</Text>
 
-      <Text style={styles.timerText}>Süre: {turnTimer}</Text>
+      <Text style={styles.timerText}>{t.time}: {turnTimer}</Text>
 
       <View style={styles.board}>
         {cards.map((card) => {

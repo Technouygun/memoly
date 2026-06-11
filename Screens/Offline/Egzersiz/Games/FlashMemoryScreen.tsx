@@ -6,14 +6,19 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  Dimensions,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { useLanguage } from "../../../../Screens/language/LanguageContext";
 
 const TOTAL_ROUNDS = 7;
 const START_CARD_COUNT = 4;
+const { width } = Dimensions.get("window");
 
 export default function FlashMemoryScreen() {
   const navigation = useNavigation<any>();
+  const { t } = useLanguage();
 
   const [round, setRound] = useState(1);
   const [sequence, setSequence] = useState<number[]>([]);
@@ -25,6 +30,8 @@ export default function FlashMemoryScreen() {
 
   const cardCount = START_CARD_COUNT + round - 1;
   const cards = Array.from({ length: cardCount }, (_, index) => index);
+
+  const cardSize = Math.min(78, (width - 72) / 4);
 
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -53,7 +60,7 @@ export default function FlashMemoryScreen() {
       setActiveCard(cardIndex);
       await sleep(500);
       setActiveCard(null);
-      await sleep(350);
+      await sleep(320);
     }
 
     setGameStatus("playing");
@@ -63,7 +70,7 @@ export default function FlashMemoryScreen() {
     if (gameStatus !== "playing") return;
 
     setActiveCard(index);
-    await sleep(180);
+    await sleep(160);
     setActiveCard(null);
 
     const newPlayerSequence = [...playerSequence, index];
@@ -71,22 +78,22 @@ export default function FlashMemoryScreen() {
 
     const currentIndex = newPlayerSequence.length - 1;
 
- if (newPlayerSequence[currentIndex] !== sequence[currentIndex]) {
-  Alert.alert("Yanlış Sıra", "Aynı turdan tekrar dene.");
+    if (newPlayerSequence[currentIndex] !== sequence[currentIndex]) {
+      Alert.alert(t.wrongOrderTitle, t.wrongOrderMessage);
 
-  setPlayerSequence([]);
-  setSequence([]);
-  setActiveCard(null);
-  setGameStatus("waiting");
+      setPlayerSequence([]);
+      setSequence([]);
+      setActiveCard(null);
+      setGameStatus("waiting");
+      return;
+    }
 
-  return;
-}
     if (newPlayerSequence.length === sequence.length) {
       if (round === TOTAL_ROUNDS) {
-        Alert.alert("Tebrikler!", "Tüm turları başarıyla tamamladın.");
+        Alert.alert(t.congrats, t.allRoundsCompleted);
         resetGame();
       } else {
-        Alert.alert("Doğru!", "Sonraki tura geçiyorsun.");
+        Alert.alert(t.correct, t.nextRound);
         setRound((prev) => prev + 1);
         setPlayerSequence([]);
         setSequence([]);
@@ -104,88 +111,197 @@ export default function FlashMemoryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Görsel Hafıza Egzersizi</Text>
-        <Text style={styles.roundText}>
-          Tur {round} / {TOTAL_ROUNDS}
-        </Text>
-        <Text style={styles.cardCountText}>{cardCount} Kart</Text>
-      </View>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <View style={styles.grid}>
-        {cards.map((card) => (
-          <TouchableOpacity
-            key={card}
-            activeOpacity={0.8}
-            style={[
-              styles.card,
-              activeCard === card && styles.activeCard,
-            ]}
-            onPress={() => handleCardPress(card)}
-          >
-            <Text style={styles.cardText}>{card + 1}</Text>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backText}>‹</Text>
           </TouchableOpacity>
-        ))}
-      </View>
 
-      <View style={styles.footer}>
-        {gameStatus === "waiting" && (
-          <TouchableOpacity style={styles.startButton} onPress={startRound}>
-            <Text style={styles.startButtonText}>Başla</Text>
-          </TouchableOpacity>
-        )}
+          <Text style={styles.logo}>MEMOLY</Text>
+          <Text style={styles.subLogo}>FLASH MEMORY</Text>
+        </View>
 
-        {gameStatus === "showing" && (
-          <Text style={styles.infoText}>Sırayı ezberle...</Text>
-        )}
+        <View style={styles.infoPanel}>
+          <Text style={styles.title}>{t.flashMemoryExercise}</Text>
 
-        {gameStatus === "playing" && (
-          <Text style={styles.infoText}>Aynı sırayla kartlara bas</Text>
-        )}
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>{t.round}</Text>
+              <Text style={styles.statValue}>{round}/{TOTAL_ROUNDS}</Text>
+            </View>
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Geri Dön</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>{t.cards}</Text>
+              <Text style={styles.statValue}>{cardCount}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.grid}>
+          {cards.map((card) => (
+            <TouchableOpacity
+              key={card}
+              activeOpacity={0.85}
+              style={[
+                styles.card,
+                {
+                  width: cardSize,
+                  height: cardSize,
+                  borderRadius: cardSize * 0.22,
+                },
+                activeCard === card && styles.activeCard,
+              ]}
+              onPress={() => handleCardPress(card)}
+            >
+              <Text style={styles.cardText}>{card + 1}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.footer}>
+          {gameStatus === "waiting" && (
+            <TouchableOpacity style={styles.startButton} onPress={startRound}>
+              <LinearGradient
+                colors={["#8E7CFF", "#6C5CE7", "#00D2FF"]}
+                style={styles.startGradient}
+              >
+                <Text style={styles.startButtonText}>{t.start}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {gameStatus === "showing" && (
+            <Text style={styles.infoText}>⚡ {t.memorizeOrder}</Text>
+          )}
+
+          {gameStatus === "playing" && (
+            <Text style={styles.infoText}>🎯 {t.pressSameOrder}</Text>
+          )}
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+
+  safe: {
     flex: 1,
-    backgroundColor: "#111827",
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 22,
+  },
+
+  glowOne: {
+    position: "absolute",
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: "rgba(108,92,231,0.32)",
+    top: -100,
+    right: -105,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    backgroundColor: "rgba(0,210,255,0.17)",
+    bottom: 80,
+    left: -105,
   },
 
   header: {
     alignItems: "center",
-    paddingTop: 30,
-    marginBottom: 24,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+
+  backButton: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  backText: {
+    color: "#FFFFFF",
+    fontSize: 34,
+    fontWeight: "700",
+    marginTop: -4,
+  },
+
+  logo: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 3,
+  },
+
+  subLogo: {
+    marginTop: 5,
+    color: "#00D2FF",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+
+  infoPanel: {
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
   },
 
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#F9FAFB",
+    fontSize: 25,
+    fontWeight: "900",
+    color: "#FFFFFF",
     textAlign: "center",
+    marginBottom: 14,
   },
 
-  roundText: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#60A5FA",
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
   },
 
-  cardCountText: {
-    marginTop: 4,
-    fontSize: 15,
-    color: "#D1D5DB",
+  statBox: {
+    flex: 1,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,210,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  statLabel: {
+    color: "#AFAFD1",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  statValue: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+    marginTop: 2,
   },
 
   grid: {
@@ -194,70 +310,56 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     alignContent: "center",
-    gap: 12,
+    gap: 10,
   },
 
   card: {
-    width: 82,
-    height: 82,
-    borderRadius: 18,
-    backgroundColor: "#1F2937",
-    borderWidth: 2,
-    borderColor: "#374151",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1.4,
+    borderColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   activeCard: {
-    backgroundColor: "#2563EB",
-    borderColor: "#93C5FD",
-    transform: [{ scale: 1.08 }],
+    backgroundColor: "rgba(0,210,255,0.30)",
+    borderColor: "#00D2FF",
+    transform: [{ scale: 1.06 }],
   },
 
   cardText: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "900",
     color: "#FFFFFF",
   },
 
   footer: {
-    paddingBottom: 30,
+    minHeight: 66,
+    justifyContent: "center",
     alignItems: "center",
   },
 
   startButton: {
     width: "100%",
-    backgroundColor: "#2563EB",
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+
+  startGradient: {
     paddingVertical: 17,
-    borderRadius: 18,
     alignItems: "center",
-    marginBottom: 14,
   },
 
   startButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "900",
   },
 
   infoText: {
-    color: "#F9FAFB",
+    color: "#FFFFFF",
     fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 18,
-  },
-
-  backButton: {
-    width: "100%",
-    backgroundColor: "#374151",
-    paddingVertical: 15,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-
-  backButtonText: {
-    color: "#F9FAFB",
-    fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "900",
+    textAlign: "center",
   },
 });

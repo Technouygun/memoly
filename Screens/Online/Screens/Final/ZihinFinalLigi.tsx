@@ -6,10 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ImageBackground,
+  SafeAreaView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ref,
   get,
@@ -22,6 +23,7 @@ import {
 } from "firebase/database";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db, firestore } from "../../../../firebaseConfig";
+import { useLanguage } from "../../../language/LanguageContext";
 
 const ENTRY_TICKET = 1;
 const WIN_REWARD = 50000;
@@ -30,11 +32,12 @@ const DRAW_REWARD = 10000;
 export default function ZihinFinalLigi() {
   const navigation = useNavigation<any>();
   const user = auth.currentUser;
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [statusText, setStatusText] = useState("Eşleşme ara");
+  const [statusText, setStatusText] = useState(t.searchMatch);
   const [timer, setTimer] = useState(15);
 
   const navigatedRef = useRef(false);
@@ -50,10 +53,7 @@ export default function ZihinFinalLigi() {
     const zihinFinalTicket = snap.data()?.zihinFinalTicket ?? 0;
 
     if (zihinFinalTicket < ENTRY_TICKET) {
-      Alert.alert(
-        "Final Bileti Yetersiz",
-        "Final ligine girmek için en az 1 Final Bileti gerekli."
-      );
+      Alert.alert(t.finalTicketNotEnoughTitle, t.finalTicketNotEnoughMessage);
       return false;
     }
 
@@ -98,7 +98,7 @@ export default function ZihinFinalLigi() {
 
   const handleJoin = async () => {
     if (!user) {
-      Alert.alert("Giriş Gerekli", "Online oynamak için önce giriş yapmalısın.");
+      Alert.alert(t.loginRequired, t.loginRequiredMessage);
       return;
     }
 
@@ -107,15 +107,17 @@ export default function ZihinFinalLigi() {
 
     setLoading(true);
     setSearching(true);
-    setStatusText("Eşleşme aranıyor...");
+    setStatusText(t.searchingMatch);
 
     try {
       const activeRef = ref(db, `activeUsers/${user.uid}`);
+
       await set(activeRef, {
         uid: user.uid,
         online: true,
         lastSeen: Date.now(),
       });
+
       onDisconnect(activeRef).remove();
 
       const waitingRef = ref(db, "zihinFinalMatchmaking/waiting");
@@ -125,7 +127,7 @@ export default function ZihinFinalLigi() {
         const opponent = waitingSnap.val();
 
         if (!opponent?.uid || opponent.uid === user.uid) {
-          setStatusText("Eşleşme aranıyor...");
+          setStatusText(t.searchingMatch);
           listenForMyMatch();
           return;
         }
@@ -171,7 +173,7 @@ export default function ZihinFinalLigi() {
 
         setMatchId(id);
         setSearching(false);
-        setStatusText("Eşleşme bulundu!");
+        setStatusText(t.matchFound);
         attachMatchListener(id);
         startCountdown(expiresAt, id);
       } else {
@@ -183,13 +185,13 @@ export default function ZihinFinalLigi() {
 
         onDisconnect(waitingRef).remove();
 
-        setStatusText("Eşleşme aranıyor...");
+        setStatusText(t.searchingMatch);
         listenForMyMatch();
       }
     } catch (error) {
       console.log("Final eşleşme hatası:", error);
       setSearching(false);
-      Alert.alert("Hata", "Eşleşme başlatılırken bir sorun oluştu.");
+      Alert.alert(t.error, t.matchStartError);
     } finally {
       setLoading(false);
     }
@@ -216,7 +218,7 @@ export default function ZihinFinalLigi() {
         ) {
           setMatchId(id);
           setSearching(false);
-          setStatusText("Eşleşme bulundu!");
+          setStatusText(t.matchFound);
           attachMatchListener(id);
           startCountdown(match.expiresAt, id);
           break;
@@ -233,7 +235,7 @@ export default function ZihinFinalLigi() {
       { ready: true }
     );
 
-    setStatusText("Hazır! Rakip bekleniyor...");
+    setStatusText(t.readyWaitingOpponent);
   };
 
   const attachMatchListener = (id: string) => {
@@ -268,10 +270,7 @@ export default function ZihinFinalLigi() {
           );
 
           if (!paymentOk) {
-            Alert.alert(
-              "Hata",
-              "Oyunculardan birinin Final Bileti yetersiz."
-            );
+            Alert.alert(t.error, t.errorMyy);
             await remove(matchRef);
             return;
           }
@@ -330,7 +329,7 @@ export default function ZihinFinalLigi() {
 
         setMatchId(null);
         setSearching(false);
-        setStatusText("Eşleşme ara");
+        setStatusText(t.searchMatch);
         setTimer(15);
 
         const currentUid = auth.currentUser?.uid;
@@ -372,7 +371,9 @@ export default function ZihinFinalLigi() {
       }
     }
 
-    navigation.replace("FirstOnline");
+    navigation.navigate("OnlineTabs", {
+      screen: "OnlineHome",
+    });
   };
 
   useEffect(() => {
@@ -395,151 +396,325 @@ export default function ZihinFinalLigi() {
   }, []);
 
   return (
-    <ImageBackground
-      source={require("../../../../assets/icon.png")}
-      style={styles.background}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay}>
-        <Text style={styles.title}>ZİHİN DEHASI FİNAL</Text>
-        <Text style={styles.entryText}>Giriş Bedeli: 1 Final Bileti</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-        {!matchId ? (
-          <View style={styles.card}>
-            {loading || searching ? (
-              <>
-                <ActivityIndicator size="large" color="#7c3aed" />
-                <Text style={styles.statusText}>Eşleşme aranıyor...</Text>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity style={styles.matchButton} onPress={handleJoin}>
-                  <MaterialCommunityIcons
-                    name="account-search"
-                    size={28}
-                    color="#fff"
-                  />
-                  <Text style={styles.matchButtonText}>Eşleşmeye Başla</Text>
-                </TouchableOpacity>
+        <View style={styles.header}>
+          <Text style={styles.logo}>MEMOLY</Text>
+          <Text style={styles.subLogo}>FINAL MATCHMAKING</Text>
+        </View>
 
-                <Text style={styles.statusText}>{statusText}</Text>
-              </>
-            )}
+        <View style={styles.heroCard}>
+          <View style={styles.iconBadge}>
+            <Icon name="crown" size={42} color="#FACC15" />
           </View>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.foundText}>Eşleşme Bulundu!</Text>
 
-            <TouchableOpacity style={styles.readyButton} onPress={handleReady}>
-              <MaterialCommunityIcons name="play" size={28} color="#fff" />
-              <Text style={styles.readyButtonText}>Oyna</Text>
-            </TouchableOpacity>
+          <Text style={styles.title}>{t.mindFinalTitle}</Text>
+          <Text style={styles.subtitle}>
+            Final biletini kullan, rakibini bul ve büyük ödül için savaş.
+          </Text>
 
-            <Text style={styles.timerText}>Kalan süre: {timer} sn</Text>
-            <Text style={styles.statusText}>{statusText}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Icon name="ticket-confirmation" size={24} color="#FB923C" />
+              <Text style={styles.statLabel}>Giriş</Text>
+              <Text style={styles.statValue}>{ENTRY_TICKET}</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <Icon name="trophy" size={24} color="#22C55E" />
+              <Text style={styles.statLabel}>Ödül</Text>
+              <Text style={styles.statValue}>{WIN_REWARD}</Text>
+            </View>
+
+            <View style={styles.statBox}>
+              <Icon name="handshake" size={24} color="#00D2FF" />
+              <Text style={styles.statLabel}>Berabere</Text>
+              <Text style={styles.statValue}>{DRAW_REWARD}</Text>
+            </View>
           </View>
-        )}
+        </View>
 
-        <TouchableOpacity style={styles.homeButton} onPress={handleBackHome}>
-          <MaterialCommunityIcons name="home" size={24} color="#fff" />
-          <Text style={styles.homeButtonText}>Ana Sayfa</Text>
+        <View style={styles.matchCard}>
+          {!matchId ? (
+            <>
+              {loading || searching ? (
+                <>
+                  <ActivityIndicator size="large" color="#FACC15" />
+                  <Text style={styles.statusText}>{t.searchingMatch}</Text>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={handleJoin}
+                    activeOpacity={0.9}
+                  >
+                    <LinearGradient
+                      colors={["#FACC15", "#FB923C", "#8E7CFF"]}
+                      style={styles.primaryGradient}
+                    >
+                      <Icon name="account-search" size={25} color="#FFFFFF" />
+                      <Text style={styles.primaryText}>{t.startMatch}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <Text style={styles.statusText}>{statusText}</Text>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.foundBadge}>
+                <Icon name="check-circle" size={34} color="#86EFAC" />
+              </View>
+
+              <Text style={styles.foundText}>{t.matchFound}</Text>
+
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleReady}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={["#22C55E", "#16A34A", "#00D2FF"]}
+                  style={styles.primaryGradient}
+                >
+                  <Icon name="play" size={25} color="#FFFFFF" />
+                  <Text style={styles.primaryText}>{t.play}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <Text style={styles.timerText}>
+                {t.remainingTime}: {timer} {t.secondShort}
+              </Text>
+              <Text style={styles.statusText}>{statusText}</Text>
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity style={styles.homeButton} onPress={handleBackHome} activeOpacity={0.85}>
+          <Icon name="home-outline" size={23} color="#00D2FF" />
+          <Text style={styles.homeButtonText}>{t.backHome}</Text>
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
-      </View>
-    </ImageBackground>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  background: { flex: 1, justifyContent: "center" },
-  overlay: {
-    margin: 20,
-    padding: 22,
-    borderRadius: 28,
-    backgroundColor: "rgba(0,0,0,0.58)",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 31,
-    fontWeight: "900",
-    color: "#c4b5fd",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  entryText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 24,
-  },
-  card: {
-    width: "100%",
-    minHeight: 180,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  matchButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#7c3aed",
-    paddingVertical: 15,
+  container: { flex: 1 },
+
+  safe: {
+    flex: 1,
     paddingHorizontal: 24,
-    borderRadius: 18,
+    paddingTop: 28,
+    paddingBottom: 28,
+    justifyContent: "center",
   },
-  matchButtonText: {
-    color: "#fff",
-    fontSize: 19,
-    fontWeight: "900",
+
+  glowOne: {
+    position: "absolute",
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(250,204,21,0.23)",
+    top: -105,
+    right: -120,
   },
-  statusText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#444",
-    fontWeight: "700",
-    textAlign: "center",
+
+  glowTwo: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(108,92,231,0.28)",
+    bottom: 95,
+    left: -120,
   },
-  foundText: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#16a34a",
+
+  header: {
+    alignItems: "center",
     marginBottom: 18,
   },
-  readyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#22c55e",
-    paddingVertical: 15,
-    paddingHorizontal: 34,
-    borderRadius: 18,
-  },
-  readyButtonText: {
-    color: "#fff",
-    fontSize: 20,
+
+  logo: {
+    color: "#FFFFFF",
+    fontSize: 38,
     fontWeight: "900",
+    letterSpacing: 3,
   },
-  timerText: {
+
+  subLogo: {
+    marginTop: 5,
+    color: "#FACC15",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+
+  heroCard: {
+    borderRadius: 30,
+    padding: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  iconBadge: {
+    width: 78,
+    height: 78,
+    borderRadius: 28,
+    backgroundColor: "rgba(250,204,21,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(250,204,21,0.34)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 13,
+  },
+
+  title: {
+    color: "#FFFFFF",
+    fontSize: 29,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  subtitle: {
+    marginTop: 8,
+    color: "#D8D8F0",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  statsRow: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 9,
     marginTop: 16,
-    fontSize: 18,
-    color: "#7c3aed",
+  },
+
+  statBox: {
+    flex: 1,
+    height: 78,
+    borderRadius: 21,
+    backgroundColor: "rgba(250,204,21,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(250,204,21,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  statLabel: {
+    marginTop: 4,
+    color: "#AFAFD1",
+    fontSize: 10,
     fontWeight: "900",
   },
-  homeButton: {
-    marginTop: 24,
+
+  statValue: {
+    marginTop: 1,
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  matchCard: {
+    minHeight: 210,
+    borderRadius: 30,
+    padding: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+
+  primaryButton: {
+    width: "100%",
+    borderRadius: 23,
+    overflow: "hidden",
+  },
+
+  primaryGradient: {
+    minHeight: 60,
+    borderRadius: 23,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    backgroundColor: "#111827",
-    paddingVertical: 13,
-    paddingHorizontal: 22,
-    borderRadius: 16,
   },
-  homeButtonText: {
-    color: "#fff",
-    fontSize: 17,
+
+  primaryText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  statusText: {
+    marginTop: 14,
+    color: "#D8D8F0",
+    fontSize: 15,
     fontWeight: "800",
+    textAlign: "center",
+  },
+
+  foundBadge: {
+    width: 62,
+    height: 62,
+    borderRadius: 22,
+    backgroundColor: "rgba(34,197,94,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+
+  foundText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+    marginBottom: 16,
+  },
+
+  timerText: {
+    marginTop: 14,
+    color: "#FACC15",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  homeButton: {
+    minHeight: 60,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 15,
+  },
+
+  homeButtonText: {
+    flex: 1,
+    marginLeft: 10,
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  arrow: {
+    color: "#00D2FF",
+    fontSize: 30,
+    fontWeight: "700",
   },
 });

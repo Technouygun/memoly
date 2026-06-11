@@ -1,61 +1,134 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 export default function ZihinFinalLoseScreen() {
   const navigation = useNavigation<any>();
+  const { t } = useLanguage();
+
+  const goOnlineHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
+    });
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.emoji}>🧠💔</Text>
-      <Text style={styles.title}>Final Kaybedildi</Text>
-      <Text style={styles.text}>Bu finalde rakibin daha fazla eş buldu.</Text>
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.replace("FirstOnline")}
-      >
-        <Text style={styles.buttonText}>Online Menüye Dön</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.card}>
+          <View style={styles.badge}>
+            <Text style={styles.emoji}>🧠💔</Text>
+          </View>
+
+          <Text style={styles.title}>{t.finalLost}</Text>
+          <Text style={styles.text}>{t.finalLoseMessage}</Text>
+
+          <TouchableOpacity style={styles.primaryButton} onPress={goOnlineHome}>
+            <LinearGradient
+              colors={["#EF4444", "#8E7CFF", "#00D2FF"]}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>{t.onlineMenu}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#450a0a",
+  container: { flex: 1 },
+  safe: { flex: 1, paddingHorizontal: 24, justifyContent: "center" },
+
+  glowOne: {
+    position: "absolute",
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(239,68,68,0.25)",
+    top: -105,
+    right: -120,
+  },
+
+  glowTwo: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(0,210,255,0.18)",
+    bottom: 90,
+    left: -120,
+  },
+
+  card: {
+    borderRadius: 32,
+    padding: 22,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  badge: {
+    width: 112,
+    height: 112,
+    borderRadius: 38,
+    backgroundColor: "rgba(239,68,68,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.38)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-  },
-  emoji: {
-    fontSize: 85,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 40,
-    color: "#f87171",
-    fontWeight: "900",
     marginBottom: 18,
-    textAlign: "center",
   },
+
+  emoji: {
+    fontSize: 52,
+  },
+
+  title: {
+    fontSize: 36,
+    color: "#FFFFFF",
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+
   text: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "700",
+    fontSize: 17,
+    color: "#D8D8F0",
+    fontWeight: "800",
     textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
   },
-  button: {
-    marginTop: 30,
-    backgroundColor: "#ef4444",
-    paddingVertical: 15,
-    paddingHorizontal: 28,
-    borderRadius: 18,
+
+  primaryButton: {
+    width: "100%",
+    borderRadius: 22,
+    overflow: "hidden",
   },
+
+  buttonGradient: {
+    paddingVertical: 17,
+    alignItems: "center",
+  },
+
   buttonText: {
-    color: "#fff",
-    fontSize: 18,
+    color: "#FFFFFF",
+    fontSize: 17,
     fontWeight: "900",
   },
 });

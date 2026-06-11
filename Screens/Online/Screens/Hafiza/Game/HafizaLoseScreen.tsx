@@ -1,40 +1,41 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useLanguage } from "../../../../language/LanguageContext";
 
 export default function HafizaLoseScreen() {
   const navigation = useNavigation<any>();
+  const { t } = useLanguage();
+
+  const goOnlineHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
+    });
+  };
 
   return (
-    <LinearGradient
-      colors={["#450a0a", "#7f1d1d", "#1c1917"]}
-      style={styles.container}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.content}>
-          <Ionicons name="close-circle" size={120} color="#ef4444" />
+    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.glowOne} />
+        <View style={styles.glowTwo} />
 
-          <Text style={styles.title}>KAYBETTİN</Text>
+        <View style={styles.card}>
+          <View style={styles.badge}>
+            <Text style={styles.emoji}>💔</Text>
+          </View>
 
-          <Text style={styles.subtitle}>
-            Bu maçı rakibin kazandı.
-          </Text>
+          <Text style={styles.title}>{t.youLost}</Text>
+          <Text style={styles.text}>{t.memoryLeagueOpponentWon}</Text>
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate("FirstHafiza")}
-          >
-            <Text style={styles.buttonText}>
-              Tekrar Dene
-            </Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={goOnlineHome}>
+            <LinearGradient
+              colors={["#EF4444", "#8E7CFF", "#00D2FF"]}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>{t.homePage}</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -43,42 +44,83 @@ export default function HafizaLoseScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  safe: { flex: 1, paddingHorizontal: 24, justifyContent: "center" },
+
+  glowOne: {
+    position: "absolute",
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(239,68,68,0.25)",
+    top: -105,
+    right: -120,
   },
 
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 25,
+  glowTwo: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: "rgba(0,210,255,0.18)",
+    bottom: 90,
+    left: -120,
   },
+
+  card: {
+    borderRadius: 32,
+    padding: 22,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  badge: {
+    width: 112,
+    height: 112,
+    borderRadius: 38,
+    backgroundColor: "rgba(239,68,68,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+
+  emoji: { fontSize: 56 },
 
   title: {
-    color: "white",
-    fontSize: 42,
-    fontWeight: "bold",
-    marginTop: 20,
-  },
-
-  subtitle: {
-    color: "#fecaca",
-    fontSize: 18,
+    fontSize: 38,
+    color: "#FFFFFF",
+    fontWeight: "900",
     textAlign: "center",
-    marginTop: 20,
+    marginBottom: 12,
   },
 
-  button: {
-    marginTop: 50,
-    backgroundColor: "#ef4444",
-    paddingVertical: 16,
-    paddingHorizontal: 50,
-    borderRadius: 18,
+  text: {
+    fontSize: 17,
+    color: "#D8D8F0",
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+
+  primaryButton: {
+    width: "100%",
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+
+  buttonGradient: {
+    paddingVertical: 17,
+    alignItems: "center",
   },
 
   buttonText: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
   },
 });
