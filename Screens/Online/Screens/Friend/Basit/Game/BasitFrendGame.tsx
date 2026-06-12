@@ -13,7 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { ref, onValue, update, get } from "firebase/database";
-import { db } from "../../../../../../firebaseConfig";
+import { db, firestore } from "../../../../../../firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { useLanguage } from "../../../../../language/LanguageContext";
 
 const EMOJIS = ["🤝", "🎮", "🧠", "🔥", "⭐", "🏆", "💎", "🚀"];
@@ -27,7 +28,11 @@ type CardType = {
   id: string;
   value: string;
   matchedBy?: PlayerRole;
+  openedBy?: PlayerRole;
 };
+
+const PLAYER_ONE_COLOR = "#3B82F6";
+const PLAYER_TWO_COLOR = "#EF4444";
 
 const createDeck = () => {
   const cards = EMOJIS.flatMap((emoji, index) => [
@@ -49,12 +54,66 @@ export default function BasitFriendGame() {
   const [myRole, setMyRole] = useState<PlayerRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [turnTimer, setTurnTimer] = useState(7);
+  const [playerNames, setPlayerNames] = useState<{ player1: string; player2: string }>({
+    player1: "Oyuncu 1",
+    player2: "Oyuncu 2",
+  });
 
   const lockRef = useRef(false);
   const resultNavigatedRef = useRef(false);
   const timeoutRunningRef = useRef(false);
 
+  const turnLimit = room?.settings?.turnTime ?? 7;
+  const isUnlimitedTurn = turnLimit === 0;
+
   const roomRef = useMemo(() => ref(db, `basitFriendRooms/${roomId}`), [roomId]);
+
+
+  const getNickname = async (uid?: string, fallback = "Oyuncu") => {
+    if (!uid) return fallback;
+
+    try {
+      const userSnap = await getDoc(doc(firestore, "users", uid));
+      const data = userSnap.exists() ? userSnap.data() : null;
+      return (
+        data?.nickname ||
+        data?.displayName ||
+        data?.name ||
+        fallback
+      );
+    } catch {
+      return fallback;
+    }
+  };
+
+  useEffect(() => {
+    const p1Uid = room?.players?.player1;
+    const p2Uid = room?.players?.player2;
+
+    if (!p1Uid && !p2Uid) return;
+
+    let mounted = true;
+
+    const loadNames = async () => {
+      const [p1Name, p2Name] = await Promise.all([
+        getNickname(p1Uid, "Oyuncu 1"),
+        getNickname(p2Uid, "Oyuncu 2"),
+      ]);
+
+      if (mounted) {
+        setPlayerNames({
+          player1: p1Name,
+          player2: p2Name,
+        });
+      }
+    };
+
+    loadNames();
+
+    return () => {
+      mounted = false;
+    };
+  }, [room?.players?.player1, room?.players?.player2]);
 
   const goFriendHome = () => {
     navigation.reset({
@@ -157,9 +216,14 @@ export default function BasitFriendGame() {
     if (!room || room.status !== "playing" || !room.currentTurn) return;
 
     const interval = setInterval(() => {
+      if (isUnlimitedTurn) {
+        setTurnTimer(0);
+        return;
+      }
+
       const startedAt = room.turnStartedAt ?? Date.now();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = Math.max(0, 7 - elapsed);
+      const remaining = Math.max(0, turnLimit - elapsed);
 
       setTurnTimer(remaining);
 
@@ -169,7 +233,7 @@ export default function BasitFriendGame() {
     }, 300);
 
     return () => clearInterval(interval);
-  }, [room?.currentTurn, room?.turnStartedAt, room?.status, myRole]);
+  }, [room?.currentTurn, room?.turnStartedAt, room?.status, myRole, turnLimit, isUnlimitedTurn]);
 
   const handleCardPress = async (card: CardType) => {
     if (!room || !myRole || !user) return;
@@ -184,7 +248,7 @@ export default function BasitFriendGame() {
     if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
-    const newOpenCards = [...openCards, card];
+    const newOpenCards = [...openCards, { ...card, openedBy: myRole }];
 
     await update(roomRef, {
       openCards: newOpenCards,
@@ -246,9 +310,17 @@ export default function BasitFriendGame() {
     }
   };
 
-  const isCardOpen = (card: CardType) => {
+  const getOpenCardRole = (card: CardType): PlayerRole | undefined => {
+    if (card.matchedBy) return card.matchedBy;
+
     const openCards: CardType[] = room?.openCards ?? [];
-    return openCards.some((item) => item.id === card.id) || card.matchedBy;
+    const openedCard = openCards.find((item) => item.id === card.id);
+
+    return openedCard?.openedBy ?? (openedCard ? room?.currentTurn : undefined);
+  };
+
+  const isCardOpen = (card: CardType) => {
+    return !!getOpenCardRole(card);
   };
 
   if (loading || !room?.cards) {
@@ -264,6 +336,7 @@ export default function BasitFriendGame() {
   const p1Score = room.scores?.player1 ?? 0;
   const p2Score = room.scores?.player2 ?? 0;
   const myTurn = room.currentTurn === myRole;
+  const currentTurnName = room.currentTurn === "player1" ? playerNames.player1 : playerNames.player2;
 
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
@@ -288,24 +361,36 @@ export default function BasitFriendGame() {
           <View style={styles.turnPill}>
             <Text style={styles.turnLabel}>{myTurn ? t.yourTurn : t.friendPlaying}</Text>
             <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
-              {myTurn ? "SEN" : "RAKİP"}
+              {myTurn ? "SEN" : currentTurnName}
             </Text>
           </View>
 
           <View style={styles.timerBox}>
-            <Text style={styles.timerNumber}>{turnTimer}</Text>
-            <Text style={styles.timerLabel}>SN</Text>
+            <Text style={styles.timerNumber}>{isUnlimitedTurn ? "∞" : turnTimer}</Text>
+            <Text style={styles.timerLabel}>{isUnlimitedTurn ? "SÜRE" : "SN"}</Text>
           </View>
         </View>
 
         <View style={styles.scoreRow}>
-          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerOne}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              styles.playerOneScore,
+              room.currentTurn === "player1" && styles.activePlayerOneScore,
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.scoreLabel}>{playerNames.player1}</Text>
             <Text style={styles.scoreValue}>{p1Score}</Text>
           </View>
 
-          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerTwo}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              styles.playerTwoScore,
+              room.currentTurn === "player2" && styles.activePlayerTwoScore,
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.scoreLabel}>{playerNames.player2}</Text>
             <Text style={styles.scoreValue}>{p2Score}</Text>
           </View>
         </View>
@@ -313,6 +398,7 @@ export default function BasitFriendGame() {
         <View style={styles.board}>
           {cards.map((card) => {
             const open = isCardOpen(card);
+            const openCardRole = getOpenCardRole(card);
 
             return (
               <TouchableOpacity
@@ -320,7 +406,10 @@ export default function BasitFriendGame() {
                 style={[
                   styles.card,
                   open && styles.openCard,
-                  card.matchedBy && styles.matchedCard,
+                  openCardRole === "player1" && styles.playerOneOpenCard,
+                  openCardRole === "player2" && styles.playerTwoOpenCard,
+                  card.matchedBy === "player1" && styles.playerOneMatchedCard,
+                  card.matchedBy === "player2" && styles.playerTwoMatchedCard,
                 ]}
                 onPress={() => handleCardPress(card)}
                 activeOpacity={0.82}
@@ -469,9 +558,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  activeScore: {
-    backgroundColor: "rgba(0,210,255,0.16)",
-    borderColor: "#00D2FF",
+  playerOneScore: {
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoScore: {
+    borderColor: PLAYER_TWO_COLOR,
+  },
+
+  activePlayerOneScore: {
+    backgroundColor: "rgba(59,130,246,0.20)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  activePlayerTwoScore: {
+    backgroundColor: "rgba(239,68,68,0.20)",
+    borderColor: PLAYER_TWO_COLOR,
   },
 
   scoreLabel: {
@@ -508,13 +610,28 @@ const styles = StyleSheet.create({
   },
 
   openCard: {
-    backgroundColor: "rgba(0,210,255,0.26)",
+    backgroundColor: "rgba(0,210,255,0.18)",
     borderColor: "#00D2FF",
   },
 
-  matchedCard: {
-    backgroundColor: "rgba(34,197,94,0.30)",
-    borderColor: "#86EFAC",
+  playerOneOpenCard: {
+    backgroundColor: "rgba(59,130,246,0.34)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoOpenCard: {
+    backgroundColor: "rgba(239,68,68,0.34)",
+    borderColor: PLAYER_TWO_COLOR,
+  },
+
+  playerOneMatchedCard: {
+    backgroundColor: "rgba(59,130,246,0.30)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoMatchedCard: {
+    backgroundColor: "rgba(239,68,68,0.30)",
+    borderColor: PLAYER_TWO_COLOR,
   },
 
   cardText: {

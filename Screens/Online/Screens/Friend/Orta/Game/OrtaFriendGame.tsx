@@ -13,7 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
 import { ref, onValue, update, get } from "firebase/database";
-import { db } from "../../../../../../firebaseConfig";
+import { db, firestore } from "../../../../../../firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { useLanguage } from "../../../../../language/LanguageContext";
 
 const EMOJIS = [
@@ -32,13 +33,18 @@ const EMOJIS = [
 const { width } = Dimensions.get("window");
 const CARD_GAP = 7;
 const CARD_SIZE = (width - 40 - CARD_GAP * 3) / 4;
-
 type PlayerRole = "player1" | "player2";
+
+const PLAYER_COLORS: Record<PlayerRole, string> = {
+  player1: "#3B82F6",
+  player2: "#EF4444",
+};
 
 type CardType = {
   id: string;
   value: string;
   matchedBy?: PlayerRole;
+  openedBy?: PlayerRole;
 };
 
 const createDeck = () => {
@@ -61,6 +67,10 @@ export default function OrtaFriendGame() {
   const [myRole, setMyRole] = useState<PlayerRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [turnTimer, setTurnTimer] = useState(7);
+  const [playerNames, setPlayerNames] = useState<Record<PlayerRole, string>>({
+    player1: "Oyuncu 1",
+    player2: "Oyuncu 2",
+  });
 
   const lockRef = useRef(false);
   const resultNavigatedRef = useRef(false);
@@ -70,6 +80,18 @@ export default function OrtaFriendGame() {
     () => ref(db, `ortaFriendRooms/${roomId}`),
     [roomId]
   );
+
+  const getNickname = async (uid?: string, fallback = "Oyuncu") => {
+    if (!uid) return fallback;
+
+    try {
+      const userSnap = await getDoc(doc(firestore, "users", uid));
+      const data = userSnap.data();
+      return data?.nickname || data?.displayName || fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   const goFriendHome = () => {
     navigation.reset({
@@ -103,6 +125,13 @@ export default function OrtaFriendGame() {
 
       const p1Uid = data.players?.player1;
       const p2Uid = data.players?.player2;
+
+      Promise.all([
+        getNickname(p1Uid, "Oyuncu 1"),
+        getNickname(p2Uid, "Oyuncu 2"),
+      ]).then(([player1, player2]) => {
+        setPlayerNames({ player1, player2 });
+      });
 
       const role =
         user.uid === p1Uid ? "player1" : user.uid === p2Uid ? "player2" : null;
@@ -172,9 +201,16 @@ export default function OrtaFriendGame() {
     if (!room || room.status !== "playing" || !room.currentTurn) return;
 
     const interval = setInterval(() => {
+      const turnLimit = room.settings?.turnTime ?? 7;
+
+      if (turnLimit === 0) {
+        setTurnTimer(0);
+        return;
+      }
+
       const startedAt = room.turnStartedAt ?? Date.now();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = Math.max(0, 7 - elapsed);
+      const remaining = Math.max(0, turnLimit - elapsed);
 
       setTurnTimer(remaining);
 
@@ -199,7 +235,7 @@ export default function OrtaFriendGame() {
     if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
-    const newOpenCards = [...openCards, card];
+    const newOpenCards = [...openCards, { ...card, openedBy: myRole }];
 
     await update(roomRef, {
       openCards: newOpenCards,
@@ -267,6 +303,12 @@ export default function OrtaFriendGame() {
     return openCards.some((item) => item.id === card.id) || card.matchedBy;
   };
 
+  const getCardOwnerRole = (card: CardType): PlayerRole | undefined => {
+    const openCards: CardType[] = room?.openCards ?? [];
+    const openCard = openCards.find((item) => item.id === card.id);
+    return card.matchedBy || openCard?.openedBy;
+  };
+
   if (loading || !room?.cards) {
     return (
       <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
@@ -282,6 +324,8 @@ export default function OrtaFriendGame() {
   const p1Score = room.scores?.player1 ?? 0;
   const p2Score = room.scores?.player2 ?? 0;
   const myTurn = room.currentTurn === myRole;
+  const turnLimit = room.settings?.turnTime ?? 7;
+  const currentTurnName = room.currentTurn ? playerNames[room.currentTurn as PlayerRole] : "";
 
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
@@ -308,13 +352,13 @@ export default function OrtaFriendGame() {
               {myTurn ? t.yourTurn : t.friendPlaying}
             </Text>
             <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
-              {myTurn ? "SEN" : "RAKİP"}
+              {myTurn && myRole ? playerNames[myRole] : currentTurnName}
             </Text>
           </View>
 
           <View style={styles.timerBox}>
-            <Text style={styles.timerNumber}>{turnTimer}</Text>
-            <Text style={styles.timerLabel}>SN</Text>
+            <Text style={styles.timerNumber}>{turnLimit === 0 ? "∞" : turnTimer}</Text>
+            <Text style={styles.timerLabel}>{turnLimit === 0 ? "SÜRE" : "SN"}</Text>
           </View>
         </View>
 
@@ -324,13 +368,25 @@ export default function OrtaFriendGame() {
         </View>
 
         <View style={styles.scoreRow}>
-          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerOne}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              { borderColor: PLAYER_COLORS.player1 },
+              room.currentTurn === "player1" && styles.activeScoreBlue,
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.scoreLabel}>{playerNames.player1}</Text>
             <Text style={styles.scoreValue}>{p1Score}</Text>
           </View>
 
-          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerTwo}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              { borderColor: PLAYER_COLORS.player2 },
+              room.currentTurn === "player2" && styles.activeScoreRed,
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.scoreLabel}>{playerNames.player2}</Text>
             <Text style={styles.scoreValue}>{p2Score}</Text>
           </View>
         </View>
@@ -338,6 +394,8 @@ export default function OrtaFriendGame() {
         <View style={styles.board}>
           {cards.map((card) => {
             const open = isCardOpen(card);
+            const cardOwner = getCardOwnerRole(card);
+            const ownerColor = cardOwner ? PLAYER_COLORS[cardOwner] : undefined;
 
             return (
               <TouchableOpacity
@@ -346,6 +404,7 @@ export default function OrtaFriendGame() {
                   styles.card,
                   open && styles.openCard,
                   card.matchedBy && styles.matchedCard,
+                  ownerColor && { borderColor: ownerColor, backgroundColor: `${ownerColor}42` },
                 ]}
                 onPress={() => handleCardPress(card)}
                 activeOpacity={0.82}
@@ -530,9 +589,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  activeScore: {
-    backgroundColor: "rgba(0,210,255,0.16)",
-    borderColor: "#00D2FF",
+  activeScoreBlue: {
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderColor: "#3B82F6",
+  },
+
+  activeScoreRed: {
+    backgroundColor: "rgba(239,68,68,0.18)",
+    borderColor: "#EF4444",
   },
 
   scoreLabel: {

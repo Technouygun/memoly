@@ -31,7 +31,16 @@ type MatchData = {
   ownerUid: string;
   invitedUid: string;
   players: Record<string, { ready: boolean }>;
+  settings?: {
+    turnTime: number;
+  };
 };
+
+const TIME_OPTIONS = [
+  { label: "7 SN", value: 7 },
+  { label: "14 SN", value: 14 },
+  { label: "SINIRSIZ", value: 0 },
+];
 
 export default function FirstOrtaFriend() {
   const user = getAuth().currentUser!;
@@ -41,6 +50,7 @@ export default function FirstOrtaFriend() {
   const [friends, setFriends] = useState<any[]>([]);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [match, setMatch] = useState<MatchData | null>(null);
+  const [selectedTurnTime, setSelectedTurnTime] = useState(7);
 
   const cleanedRef = useRef(false);
 
@@ -168,6 +178,11 @@ export default function FirstOrtaFriend() {
             player1: 0,
             player2: 0,
           },
+          settings: {
+            turnTime: data.settings?.turnTime ?? 7,
+            player1Color: "#3B82F6",
+            player2Color: "#EF4444",
+          },
           createdAt: Date.now(),
         });
 
@@ -201,6 +216,9 @@ export default function FirstOrtaFriend() {
         [friendUid]: { ready: false },
       },
       boardSize: "4x5",
+      settings: {
+        turnTime: selectedTurnTime,
+      },
       createdAt: Date.now(),
     });
 
@@ -318,6 +336,29 @@ export default function FirstOrtaFriend() {
               <Text style={styles.infoValue}>{friends.length}</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.timeSelectBox}>
+          <Text style={styles.timeSelectTitle}>El Başı Süre</Text>
+          <View style={styles.timeOptionsRow}>
+            {TIME_OPTIONS.map((option) => {
+              const active = selectedTurnTime === option.value;
+
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  activeOpacity={0.85}
+                  style={[styles.timeOption, active && styles.timeOptionActive]}
+                  onPress={() => setSelectedTurnTime(option.value)}
+                >
+                  <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.colorInfo}>Kurucu mavi, davet edilen kırmızı oynar.</Text>
         </View>
 
         <View style={styles.listHeader}>
@@ -485,6 +526,63 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "900",
+  },
+
+
+  timeSelectBox: {
+    borderRadius: 24,
+    padding: 13,
+    marginBottom: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  timeSelectTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+
+  timeOptionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  timeOption: {
+    flex: 1,
+    height: 40,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  timeOptionActive: {
+    backgroundColor: "rgba(0,210,255,0.18)",
+    borderColor: "#00D2FF",
+  },
+
+  timeOptionText: {
+    color: "#BFC0DD",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  timeOptionTextActive: {
+    color: "#FFFFFF",
+  },
+
+  colorInfo: {
+    color: "#BFC0DD",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 9,
+    textAlign: "center",
   },
 
   listHeader: {

@@ -37,7 +37,11 @@ type CardType = {
   id: string;
   value: string;
   matchedBy?: PlayerRole;
+  openedBy?: PlayerRole;
 };
+
+const PLAYER_ONE_COLOR = "#3B82F6";
+const PLAYER_TWO_COLOR = "#EF4444";
 
 const createDeck = () => {
   const cards = EMOJIS.flatMap((emoji, index) => [
@@ -63,6 +67,7 @@ export default function ZihinGameScreen() {
   const lockRef = useRef(false);
   const resultNavigatedRef = useRef(false);
   const timeoutRunningRef = useRef(false);
+  const surrenderRunningRef = useRef(false);
 
   const roomRef = useMemo(() => ref(db, `zihinRooms/${roomId}`), [roomId]);
 
@@ -71,6 +76,30 @@ export default function ZihinGameScreen() {
       index: 0,
       routes: [{ name: "OnlineTabs", params: { screen: "OnlineHome" } }],
     });
+  };
+
+  const getPlayerUid = (role: PlayerRole, data: any = room) => {
+    const player = data?.players?.[role];
+
+    if (typeof player === "string") return player;
+
+    return player?.uid;
+  };
+
+  const getPlayerName = (role: PlayerRole) => {
+    const player = room?.players?.[role];
+
+    if (typeof player === "string") {
+      return role === "player1" ? "Oyuncu 1" : "Oyuncu 2";
+    }
+
+    return (
+      player?.nickname ||
+      player?.displayName ||
+      player?.name ||
+      player?.email?.split("@")?.[0] ||
+      (role === "player1" ? "Oyuncu 1" : "Oyuncu 2")
+    );
   };
 
   useEffect(() => {
@@ -94,8 +123,8 @@ export default function ZihinGameScreen() {
         return;
       }
 
-      const p1Uid = data.players?.player1?.uid;
-      const p2Uid = data.players?.player2?.uid;
+      const p1Uid = getPlayerUid("player1", data);
+      const p2Uid = getPlayerUid("player2", data);
 
       const role =
         user.uid === p1Uid ? "player1" : user.uid === p2Uid ? "player2" : null;
@@ -114,6 +143,18 @@ export default function ZihinGameScreen() {
           status: "playing",
           turnStartedAt: Date.now(),
         });
+      }
+
+      if (data.status === "surrendered" && role && !resultNavigatedRef.current) {
+        resultNavigatedRef.current = true;
+
+        if (data.winnerRole === role) {
+          navigation.replace("ZihinWinScreen", { roomId });
+        } else {
+          navigation.replace("ZihinLoseScreen", { roomId });
+        }
+
+        return;
       }
 
       if (data.status === "finished" && role && !resultNavigatedRef.current) {
@@ -179,6 +220,42 @@ export default function ZihinGameScreen() {
     return () => clearInterval(interval);
   }, [room?.currentTurn, room?.turnStartedAt, room?.status, myRole]);
 
+  const surrenderGame = async () => {
+    if (!room || !myRole || !user) return;
+    if (room.status !== "playing") return;
+    if (surrenderRunningRef.current) return;
+
+    const winnerRole: PlayerRole = myRole === "player1" ? "player2" : "player1";
+
+    surrenderRunningRef.current = true;
+
+    await update(roomRef, {
+      status: "surrendered",
+      surrenderedBy: user.uid,
+      loserRole: myRole,
+      winnerRole,
+      openCards: [],
+      finishedAt: Date.now(),
+    });
+
+    surrenderRunningRef.current = false;
+  };
+
+  const confirmSurrender = () => {
+    Alert.alert(
+      "Pes Et",
+      "Pes edersen kaybedersin. Emin misin?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Pes Et",
+          style: "destructive",
+          onPress: surrenderGame,
+        },
+      ]
+    );
+  };
+
   const handleCardPress = async (card: CardType) => {
     if (!room || !myRole || !user) return;
     if (lockRef.current) return;
@@ -192,7 +269,7 @@ export default function ZihinGameScreen() {
     if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
-    const newOpenCards = [...openCards, card];
+    const newOpenCards = [...openCards, { ...card, openedBy: myRole }];
 
     await update(roomRef, {
       openCards: newOpenCards,
@@ -209,6 +286,11 @@ export default function ZihinGameScreen() {
         if (!freshSnap.exists()) return;
 
         const freshRoom = freshSnap.val();
+        if (freshRoom.status !== "playing") {
+          lockRef.current = false;
+          return;
+        }
+
         const freshCards: CardType[] = freshRoom.cards ?? [];
         const freshScores = freshRoom.scores ?? { player1: 0, player2: 0 };
 
@@ -255,9 +337,17 @@ export default function ZihinGameScreen() {
     }
   };
 
-  const isCardOpen = (card: CardType) => {
+  const getOpenCardRole = (card: CardType): PlayerRole | undefined => {
+    if (card.matchedBy) return card.matchedBy;
+
     const openCards: CardType[] = room?.openCards ?? [];
-    return openCards.some((item) => item.id === card.id) || card.matchedBy;
+    const openedCard = openCards.find((item) => item.id === card.id);
+
+    return openedCard?.openedBy ?? (openedCard ? room?.currentTurn : undefined);
+  };
+
+  const isCardOpen = (card: CardType) => {
+    return !!getOpenCardRole(card);
   };
 
   if (loading || !room?.cards) {
@@ -275,6 +365,8 @@ export default function ZihinGameScreen() {
   const p1Score = room.scores?.player1 ?? 0;
   const p2Score = room.scores?.player2 ?? 0;
   const myTurn = room.currentTurn === myRole;
+  const currentTurnName =
+    room.currentTurn === "player1" ? getPlayerName("player1") : getPlayerName("player2");
 
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
@@ -284,16 +376,12 @@ export default function ZihinGameScreen() {
 
         <View style={styles.topLine}>
           <TouchableOpacity
-            style={styles.exitButton}
-            onPress={async () => {
-              await update(roomRef, {
-                status: "exited",
-                exitedBy: user?.uid,
-              });
-            }}
+            style={styles.surrenderButton}
+            onPress={confirmSurrender}
             activeOpacity={0.85}
+            disabled={room.status !== "playing"}
           >
-            <Text style={styles.exitText}>‹</Text>
+            <Text style={styles.surrenderText}>Pes Et</Text>
           </TouchableOpacity>
 
           <View style={styles.turnPill}>
@@ -301,7 +389,7 @@ export default function ZihinGameScreen() {
               {myTurn ? t.yourTurn || "SIRA SENDE" : t.opponentPlaying || "RAKİP OYNUYOR"}
             </Text>
             <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
-              {myTurn ? "SEN" : "RAKİP"}
+              {myTurn ? "SEN" : currentTurnName}
             </Text>
           </View>
 
@@ -317,16 +405,16 @@ export default function ZihinGameScreen() {
         </View>
 
         <View style={styles.scoreRow}>
-          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
+          <View style={[styles.scoreCard, styles.playerOneScore, room.currentTurn === "player1" && styles.activePlayerOneScore]}>
             <Text numberOfLines={1} style={styles.scoreLabel}>
-              {room.players?.player1?.name || t.playerOne || "Oyuncu 1"}
+              {getPlayerName("player1")}
             </Text>
             <Text style={styles.scoreValue}>{p1Score}</Text>
           </View>
 
-          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
+          <View style={[styles.scoreCard, styles.playerTwoScore, room.currentTurn === "player2" && styles.activePlayerTwoScore]}>
             <Text numberOfLines={1} style={styles.scoreLabel}>
-              {room.players?.player2?.name || t.playerTwo || "Oyuncu 2"}
+              {getPlayerName("player2")}
             </Text>
             <Text style={styles.scoreValue}>{p2Score}</Text>
           </View>
@@ -335,6 +423,7 @@ export default function ZihinGameScreen() {
         <View style={styles.board}>
           {cards.map((card) => {
             const open = isCardOpen(card);
+            const openCardRole = getOpenCardRole(card);
 
             return (
               <TouchableOpacity
@@ -342,7 +431,10 @@ export default function ZihinGameScreen() {
                 style={[
                   styles.card,
                   open && styles.openCard,
-                  card.matchedBy && styles.matchedCard,
+                  openCardRole === "player1" && styles.playerOneOpenCard,
+                  openCardRole === "player2" && styles.playerTwoOpenCard,
+                  card.matchedBy === "player1" && styles.playerOneMatchedCard,
+                  card.matchedBy === "player2" && styles.playerTwoMatchedCard,
                 ]}
                 onPress={() => handleCardPress(card)}
                 activeOpacity={0.82}
@@ -408,10 +500,10 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
 
-  exitButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
+  surrenderButton: {
+    width: 72,
+    height: 38,
+    borderRadius: 15,
     backgroundColor: "rgba(239,68,68,0.20)",
     borderWidth: 1,
     borderColor: "rgba(239,68,68,0.45)",
@@ -420,11 +512,10 @@ const styles = StyleSheet.create({
     marginRight: 7,
   },
 
-  exitText: {
+  surrenderText: {
     color: "#FFFFFF",
-    fontSize: 30,
-    fontWeight: "800",
-    marginTop: -4,
+    fontSize: 13,
+    fontWeight: "900",
   },
 
   turnPill: {
@@ -528,9 +619,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
 
-  activeScore: {
-    backgroundColor: "rgba(167,139,250,0.16)",
-    borderColor: "#A78BFA",
+  playerOneScore: {
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoScore: {
+    borderColor: PLAYER_TWO_COLOR,
+  },
+
+  activePlayerOneScore: {
+    backgroundColor: "rgba(59,130,246,0.20)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  activePlayerTwoScore: {
+    backgroundColor: "rgba(239,68,68,0.20)",
+    borderColor: PLAYER_TWO_COLOR,
   },
 
   scoreLabel: {
@@ -572,9 +676,24 @@ const styles = StyleSheet.create({
     borderColor: "#A78BFA",
   },
 
-  matchedCard: {
-    backgroundColor: "rgba(34,197,94,0.30)",
-    borderColor: "#86EFAC",
+  playerOneOpenCard: {
+    backgroundColor: "rgba(59,130,246,0.34)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoOpenCard: {
+    backgroundColor: "rgba(239,68,68,0.34)",
+    borderColor: PLAYER_TWO_COLOR,
+  },
+
+  playerOneMatchedCard: {
+    backgroundColor: "rgba(59,130,246,0.30)",
+    borderColor: PLAYER_ONE_COLOR,
+  },
+
+  playerTwoMatchedCard: {
+    backgroundColor: "rgba(239,68,68,0.30)",
+    borderColor: PLAYER_TWO_COLOR,
   },
 
   cardText: {

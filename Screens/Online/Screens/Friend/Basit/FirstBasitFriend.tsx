@@ -31,7 +31,21 @@ type MatchData = {
   ownerUid: string;
   invitedUid: string;
   players: Record<string, { ready: boolean }>;
+  settings?: {
+    turnTime: number; // 7 | 14 | 0, 0 = sınırsız
+    player1Color: string;
+    player2Color: string;
+  };
 };
+
+const TURN_OPTIONS = [
+  { label: "7 SN", value: 7 },
+  { label: "14 SN", value: 14 },
+  { label: "SINIRSIZ", value: 0 },
+];
+
+const PLAYER_ONE_COLOR = "#3B82F6";
+const PLAYER_TWO_COLOR = "#EF4444";
 
 export default function FirstBasitFriend() {
   const user = getAuth().currentUser!;
@@ -41,6 +55,7 @@ export default function FirstBasitFriend() {
   const [friends, setFriends] = useState<any[]>([]);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [match, setMatch] = useState<MatchData | null>(null);
+  const [selectedTurnTime, setSelectedTurnTime] = useState(7);
 
   const cleanedRef = useRef(false);
 
@@ -151,6 +166,11 @@ export default function FirstBasitFriend() {
 
         await set(ref(db, `basitFriendRooms/${matchId}`), {
           boardSize: "4x4",
+          settings: {
+            turnTime: data.settings?.turnTime ?? 7,
+            player1Color: PLAYER_ONE_COLOR,
+            player2Color: PLAYER_TWO_COLOR,
+          },
           players: {
             player1: data.ownerUid,
             player2,
@@ -201,6 +221,11 @@ export default function FirstBasitFriend() {
         [friendUid]: { ready: false },
       },
       boardSize: "4x4",
+      settings: {
+        turnTime: selectedTurnTime,
+        player1Color: PLAYER_ONE_COLOR,
+        player2Color: PLAYER_TWO_COLOR,
+      },
       createdAt: Date.now(),
     });
 
@@ -320,9 +345,48 @@ export default function FirstBasitFriend() {
           </View>
         </View>
 
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsTitleRow}>
+            <Icon name="timer-outline" size={21} color="#00D2FF" />
+            <Text style={styles.settingsTitle}>El Başı Süre Seç</Text>
+          </View>
+
+          <View style={styles.timeOptions}>
+            {TURN_OPTIONS.map((option) => {
+              const active = selectedTurnTime === option.value;
+
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  activeOpacity={0.85}
+                  style={[styles.timeOption, active && styles.timeOptionActive]}
+                  onPress={() => setSelectedTurnTime(option.value)}
+                  disabled={!!matchId}
+                >
+                  <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.colorInfoRow}>
+            <View style={styles.colorInfoBox}>
+              <View style={[styles.colorDot, { backgroundColor: PLAYER_ONE_COLOR }]} />
+              <Text style={styles.colorInfoText}>Kurucu: Mavi</Text>
+            </View>
+
+            <View style={styles.colorInfoBox}>
+              <View style={[styles.colorDot, { backgroundColor: PLAYER_TWO_COLOR }]} />
+              <Text style={styles.colorInfoText}>Davet Edilen: Kırmızı</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.listHeader}>
           <Text style={styles.listTitle}>Arkadaş Seç</Text>
-          <Text style={styles.listSub}>Davet gönder, kabul edilince oyuna başla.</Text>
+          <Text style={styles.listSub}>Önce süreyi seç, sonra arkadaşına davet gönder.</Text>
         </View>
 
         <FlatList
@@ -484,6 +548,92 @@ const styles = StyleSheet.create({
     marginTop: 1,
     color: "#FFFFFF",
     fontSize: 18,
+    fontWeight: "900",
+  },
+
+
+  settingsCard: {
+    borderRadius: 26,
+    padding: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    marginBottom: 14,
+  },
+
+  settingsTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    marginBottom: 12,
+  },
+
+  settingsTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  timeOptions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  timeOption: {
+    flex: 1,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  timeOptionActive: {
+    backgroundColor: "rgba(0,210,255,0.22)",
+    borderColor: "#00D2FF",
+  },
+
+  timeOptionText: {
+    color: "#BFC0DD",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  timeOptionTextActive: {
+    color: "#FFFFFF",
+  },
+
+  colorInfoRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+
+  colorInfoBox: {
+    flex: 1,
+    minHeight: 34,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  colorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
+  colorInfoText: {
+    color: "#D8D8F0",
+    fontSize: 10,
     fontWeight: "900",
   },
 

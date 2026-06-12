@@ -109,6 +109,17 @@ export default function UstaLigi() {
     setStatusText(t.searchingMatch);
 
     try {
+      const myUserRef = doc(firestore, "users", user.uid);
+      const myUserSnap = await getDoc(myUserRef);
+      const myUserData = myUserSnap.data();
+
+      const myNickname =
+        myUserData?.nickname ||
+        myUserData?.name ||
+        user.displayName ||
+        user.email?.split("@")?.[0] ||
+        t.player;
+
       const activeRef = ref(db, `activeUsers/${user.uid}`);
       await set(activeRef, {
         uid: user.uid,
@@ -159,12 +170,14 @@ export default function UstaLigi() {
           players: {
             [opponent.uid]: {
               uid: opponent.uid,
-              name: opponent.name ?? t.playerOne,
+              name: opponent.nickname || opponent.name || t.playerOne,
+              nickname: opponent.nickname || opponent.name || t.playerOne,
               ready: false,
             },
             [user.uid]: {
               uid: user.uid,
-              name: user.displayName ?? t.playerTwo,
+              name: myNickname,
+              nickname: myNickname,
               ready: false,
             },
           },
@@ -178,7 +191,8 @@ export default function UstaLigi() {
       } else {
         await set(waitingRef, {
           uid: user.uid,
-          name: user.displayName ?? t.player,
+          name: myNickname,
+          nickname: myNickname,
           ts: Date.now(),
         });
 
@@ -284,12 +298,26 @@ export default function UstaLigi() {
             players: {
               player1: {
                 uid: data.ownerUid,
-                name: players[data.ownerUid]?.name ?? t.playerOne,
+                name:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  t.playerOne,
+                nickname:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  t.playerOne,
                 score: 0,
               },
               player2: {
                 uid: player2Uid,
-                name: players[player2Uid]?.name ?? t.playerTwo,
+                name:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  t.playerTwo,
+                nickname:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  t.playerTwo,
                 score: 0,
               },
             },

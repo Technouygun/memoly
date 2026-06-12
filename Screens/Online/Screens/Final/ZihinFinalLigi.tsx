@@ -110,6 +110,17 @@ export default function ZihinFinalLigi() {
     setStatusText(t.searchingMatch);
 
     try {
+      const myUserRef = doc(firestore, "users", user.uid);
+      const myUserSnap = await getDoc(myUserRef);
+      const myUserData = myUserSnap.data();
+
+      const myNickname =
+        myUserData?.nickname ||
+        myUserData?.name ||
+        user.displayName ||
+        user.email?.split("@")?.[0] ||
+        "Oyuncu";
+
       const activeRef = ref(db, `activeUsers/${user.uid}`);
 
       await set(activeRef, {
@@ -160,12 +171,14 @@ export default function ZihinFinalLigi() {
           players: {
             [opponent.uid]: {
               uid: opponent.uid,
-              name: opponent.name ?? "Oyuncu 1",
+              name: opponent.nickname || opponent.name || "Oyuncu 1",
+              nickname: opponent.nickname || opponent.name || "Oyuncu 1",
               ready: false,
             },
             [user.uid]: {
               uid: user.uid,
-              name: user.displayName ?? "Oyuncu 2",
+              name: myNickname,
+              nickname: myNickname,
               ready: false,
             },
           },
@@ -179,7 +192,8 @@ export default function ZihinFinalLigi() {
       } else {
         await set(waitingRef, {
           uid: user.uid,
-          name: user.displayName ?? "Oyuncu",
+          name: myNickname,
+          nickname: myNickname,
           ts: Date.now(),
         });
 
@@ -287,12 +301,26 @@ export default function ZihinFinalLigi() {
             players: {
               player1: {
                 uid: data.ownerUid,
-                name: players[data.ownerUid]?.name ?? "Oyuncu 1",
+                name:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  "Oyuncu 1",
+                nickname:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  "Oyuncu 1",
                 score: 0,
               },
               player2: {
                 uid: player2Uid,
-                name: players[player2Uid]?.name ?? "Oyuncu 2",
+                name:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  "Oyuncu 2",
+                nickname:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  "Oyuncu 2",
                 score: 0,
               },
             },

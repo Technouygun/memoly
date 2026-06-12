@@ -20,17 +20,41 @@ import {
   remove,
   onDisconnect,
 } from "firebase/database";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { db, firestore } from "../../../../../firebaseConfig";
 import { useLanguage } from "../../../../language/LanguageContext";
+
+type TurnTimeOption = 7 | 14 | 0;
 
 type MatchData = {
   status: "invited" | "accepted" | "started";
   ownerUid: string;
   invitedUid: string;
   players: Record<string, { ready: boolean }>;
+  settings?: {
+    turnTime: TurnTimeOption;
+  };
+  playerNames?: {
+    player1: string;
+    player2: string;
+  };
+  playerColors?: {
+    player1: string;
+    player2: string;
+  };
+};
+
+const TURN_OPTIONS: { label: string; value: TurnTimeOption }[] = [
+  { label: "7 SN", value: 7 },
+  { label: "14 SN", value: 14 },
+  { label: "SINIRSIZ", value: 0 },
+];
+
+const PLAYER_COLORS = {
+  player1: "#3B82F6",
+  player2: "#EF4444",
 };
 
 export default function FirstZorFriend() {
@@ -39,6 +63,7 @@ export default function FirstZorFriend() {
   const { t } = useLanguage();
 
   const [friends, setFriends] = useState<any[]>([]);
+  const [selectedTurnTime, setSelectedTurnTime] = useState<TurnTimeOption>(7);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [match, setMatch] = useState<MatchData | null>(null);
 
@@ -75,7 +100,7 @@ export default function FirstZorFriend() {
       return () => {
         cleanupMatch();
       };
-    }, [matchId])
+    }, [matchId]),
   );
 
   useEffect(() => {
@@ -97,11 +122,14 @@ export default function FirstZorFriend() {
   useEffect(() => {
     if (!user) return;
 
-    return onSnapshot(collection(firestore, "friends", user.uid, "list"), (snap) => {
-      const arr: any[] = [];
-      snap.forEach((d) => arr.push({ id: d.id, ...d.data() }));
-      setFriends(arr);
-    });
+    return onSnapshot(
+      collection(firestore, "friends", user.uid, "list"),
+      (snap) => {
+        const arr: any[] = [];
+        snap.forEach((d) => arr.push({ id: d.id, ...d.data() }));
+        setFriends(arr);
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -146,7 +174,7 @@ export default function FirstZorFriend() {
 
       if (data.status === "accepted" && allReady) {
         const player2 = Object.keys(data.players).find(
-          (uid) => uid !== data.ownerUid
+          (uid) => uid !== data.ownerUid,
         );
 
         await set(ref(db, `zorFriendRooms/${matchId}`), {
@@ -155,6 +183,12 @@ export default function FirstZorFriend() {
             player1: data.ownerUid,
             player2,
           },
+          settings: data.settings || { turnTime: 7 },
+          playerNames: data.playerNames || {
+            player1: "Oyuncu 1",
+            player2: "Oyuncu 2",
+          },
+          playerColors: data.playerColors || PLAYER_COLORS,
           game: {
             status: "playing",
             currentTurn: "player1",
@@ -181,7 +215,20 @@ export default function FirstZorFriend() {
     });
   }, [matchId]);
 
-  const handleInvite = async (friendUid: string) => {
+  const getMyNickname = async () => {
+    try {
+      const userSnap = await getDoc(doc(firestore, "users", user.uid));
+      const data = userSnap.data();
+      return data?.nickname || user.displayName || user.email || "Oyuncu 1";
+    } catch {
+      return user.displayName || user.email || "Oyuncu 1";
+    }
+  };
+
+  const handleInvite = async (friend: any) => {
+    if (!friend) return;
+
+    const friendUid = friend.uid || friend.id;
     const id = buildMatchId(user.uid, friendUid);
     const matchRef = ref(db, `friendMatchmaking/zor/${id}`);
 
@@ -192,6 +239,9 @@ export default function FirstZorFriend() {
       return;
     }
 
+    const ownerNickname = await getMyNickname();
+    const invitedNickname = friend.nickname || friend.name || "Oyuncu 2";
+
     await set(matchRef, {
       status: "invited",
       ownerUid: user.uid,
@@ -200,6 +250,14 @@ export default function FirstZorFriend() {
         [user.uid]: { ready: false },
         [friendUid]: { ready: false },
       },
+      settings: {
+        turnTime: selectedTurnTime,
+      },
+      playerNames: {
+        player1: ownerNickname,
+        player2: invitedNickname,
+      },
+      playerColors: PLAYER_COLORS,
       boardSize: "4x6",
       createdAt: Date.now(),
     });
@@ -228,7 +286,7 @@ export default function FirstZorFriend() {
 
     await update(
       ref(db, `friendMatchmaking/zor/${matchId}/players/${user.uid}`),
-      { ready: true }
+      { ready: true },
     );
   };
 
@@ -239,7 +297,12 @@ export default function FirstZorFriend() {
       return (
         <TouchableOpacity
           style={styles.matchBtn}
-          onPress={() => handleInvite(friendUid)}
+          onPress={() => {
+            const friend = friends.find(
+              (item) => (item.uid || item.id) === friendUid,
+            );
+            handleInvite(friend);
+          }}
         >
           <Icon name="sword-cross" size={18} color="#FFFFFF" />
           <Text style={styles.btnTextWhite}>{t.match}</Text>
@@ -274,7 +337,10 @@ export default function FirstZorFriend() {
   };
 
   return (
-    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.page}>
+    <LinearGradient
+      colors={["#070712", "#101035", "#171753"]}
+      style={styles.page}
+    >
       <SafeAreaView style={styles.safe}>
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
@@ -286,8 +352,8 @@ export default function FirstZorFriend() {
             onPress={async () => {
               await cleanupMatch();
               navigation.navigate("OnlineTabs", {
-  screen: "FirstFriend",
-});
+                screen: "FirstFriend",
+              });
             }}
           >
             <Icon name="arrow-left" size={22} color="#00D2FF" />
@@ -320,9 +386,40 @@ export default function FirstZorFriend() {
           </View>
         </View>
 
+        <View style={styles.timeSelectorBox}>
+          <Text style={styles.timeTitle}>El Başı Süre</Text>
+          <View style={styles.timeOptions}>
+            {TURN_OPTIONS.map((option) => {
+              const active = selectedTurnTime === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  activeOpacity={0.85}
+                  style={[styles.timeOption, active && styles.timeOptionActive]}
+                  onPress={() => setSelectedTurnTime(option.value)}
+                >
+                  <Text
+                    style={[
+                      styles.timeOptionText,
+                      active && styles.timeOptionTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.colorInfo}>
+            Kurucu mavi, davet edilen kırmızı oynar.
+          </Text>
+        </View>
+
         <View style={styles.listHeader}>
           <Text style={styles.listTitle}>Arkadaş Seç</Text>
-          <Text style={styles.listSub}>Davet gönder, kabul edilince oyuna başla.</Text>
+          <Text style={styles.listSub}>
+            Süreyi seç, davet gönder, kabul edilince oyuna başla.
+          </Text>
         </View>
 
         <FlatList
@@ -346,10 +443,12 @@ export default function FirstZorFriend() {
                 <Text numberOfLines={1} style={styles.name}>
                   {item.nickname}
                 </Text>
-                <Text style={styles.nameSub}>Hazır olduğunda eşleşme başlat</Text>
+                <Text style={styles.nameSub}>
+                  Hazır olduğunda eşleşme başlat
+                </Text>
               </View>
 
-              {renderAction(item.uid)}
+              {renderAction(item.uid || item.id)}
             </View>
           )}
         />
@@ -485,6 +584,60 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "900",
+  },
+
+  timeSelectorBox: {
+    borderRadius: 24,
+    padding: 12,
+    marginBottom: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+
+  timeTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    marginBottom: 9,
+  },
+
+  timeOptions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  timeOption: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  timeOptionActive: {
+    backgroundColor: "rgba(59,130,246,0.24)",
+    borderColor: "#3B82F6",
+  },
+
+  timeOptionText: {
+    color: "#BFC0DD",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  timeOptionTextActive: {
+    color: "#FFFFFF",
+  },
+
+  colorInfo: {
+    marginTop: 8,
+    color: "#BFC0DD",
+    fontSize: 11,
+    fontWeight: "800",
   },
 
   listHeader: {

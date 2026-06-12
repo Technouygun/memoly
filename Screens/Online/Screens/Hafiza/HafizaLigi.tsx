@@ -61,6 +61,32 @@ export default function HafizaLigi() {
     return true;
   };
 
+  const getMyNickname = async () => {
+    if (!user) return "Oyuncu";
+
+    try {
+      const userRef = doc(firestore, "users", user.uid);
+      const snap = await getDoc(userRef);
+      const data = snap.data();
+
+      return (
+        data?.nickname ||
+        data?.name ||
+        user.displayName ||
+        user.email?.split("@")?.[0] ||
+        "Oyuncu"
+      );
+    } catch (error) {
+      console.log("Nickname alma hatası:", error);
+
+      return (
+        user.displayName ||
+        user.email?.split("@")?.[0] ||
+        "Oyuncu"
+      );
+    }
+  };
+
   const payEntryFeeForBothPlayers = async (uid1: string, uid2: string) => {
     try {
       const user1Ref = doc(firestore, "users", uid1);
@@ -111,6 +137,8 @@ export default function HafizaLigi() {
     setStatusText(t.searchingMatch);
 
     try {
+      const myNickname = await getMyNickname();
+
       const activeRef = ref(db, `activeUsers/${user.uid}`);
 
       await set(activeRef, {
@@ -165,12 +193,14 @@ export default function HafizaLigi() {
           players: {
             [opponent.uid]: {
               uid: opponent.uid,
-              name: opponent.name ?? t.playerOne,
+              name: opponent.nickname || opponent.name || t.playerOne,
+              nickname: opponent.nickname || opponent.name || t.playerOne,
               ready: false,
             },
             [user.uid]: {
               uid: user.uid,
-              name: user.displayName ?? t.playerTwo,
+              name: myNickname,
+              nickname: myNickname,
               ready: false,
             },
           },
@@ -184,7 +214,8 @@ export default function HafizaLigi() {
       } else {
         await set(waitingRef, {
           uid: user.uid,
-          name: user.displayName ?? t.player,
+          name: myNickname,
+          nickname: myNickname,
           ts: Date.now(),
         });
 
@@ -292,12 +323,26 @@ export default function HafizaLigi() {
             players: {
               player1: {
                 uid: data.ownerUid,
-                name: players[data.ownerUid]?.name ?? t.playerOne,
+                name:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  t.playerOne,
+                nickname:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  t.playerOne,
                 score: 0,
               },
               player2: {
                 uid: player2Uid,
-                name: players[player2Uid]?.name ?? t.playerTwo,
+                name:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  t.playerTwo,
+                nickname:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  t.playerTwo,
                 score: 0,
               },
             },

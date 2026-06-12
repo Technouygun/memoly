@@ -96,6 +96,23 @@ export default function CaylakLigi() {
     }
   };
 
+
+  const getMyNickname = async () => {
+    if (!user) return "Oyuncu";
+
+    const myUserRef = doc(firestore, "users", user.uid);
+    const myUserSnap = await getDoc(myUserRef);
+    const myUserData = myUserSnap.data();
+
+    return (
+      myUserData?.nickname ||
+      myUserData?.name ||
+      user.displayName ||
+      user.email?.split("@")?.[0] ||
+      "Oyuncu"
+    );
+  };
+
   const handleJoin = async () => {
     if (!user) {
       Alert.alert(t.loginRequired, t.loginRequiredMessage);
@@ -110,6 +127,7 @@ export default function CaylakLigi() {
     setStatusText(t.searchingMatch);
 
     try {
+      const myNickname = await getMyNickname();
       const activeRef = ref(db, `activeUsers/${user.uid}`);
 
       await set(activeRef, {
@@ -155,12 +173,14 @@ export default function CaylakLigi() {
           players: {
             [opponent.uid]: {
               uid: opponent.uid,
-              name: opponent.name ?? "Oyuncu 1",
+              name: opponent.nickname || opponent.name || "Oyuncu 1",
+              nickname: opponent.nickname || opponent.name || "Oyuncu 1",
               ready: false,
             },
             [user.uid]: {
               uid: user.uid,
-              name: user.displayName ?? "Oyuncu 2",
+              name: myNickname,
+              nickname: myNickname,
               ready: false,
             },
           },
@@ -174,7 +194,8 @@ export default function CaylakLigi() {
       } else {
         await set(waitingRef, {
           uid: user.uid,
-          name: user.displayName ?? "Oyuncu",
+          name: myNickname,
+          nickname: myNickname,
           ts: Date.now(),
         });
 
@@ -275,12 +296,26 @@ export default function CaylakLigi() {
             players: {
               player1: {
                 uid: data.ownerUid,
-                name: players[data.ownerUid]?.name ?? "Oyuncu 1",
+                name:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  "Oyuncu 1",
+                nickname:
+                  players[data.ownerUid]?.nickname ||
+                  players[data.ownerUid]?.name ||
+                  "Oyuncu 1",
                 score: 0,
               },
               player2: {
                 uid: player2Uid,
-                name: players[player2Uid]?.name ?? "Oyuncu 2",
+                name:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  "Oyuncu 2",
+                nickname:
+                  players[player2Uid]?.nickname ||
+                  players[player2Uid]?.name ||
+                  "Oyuncu 2",
                 score: 0,
               },
             },
@@ -400,7 +435,7 @@ export default function CaylakLigi() {
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Icon name="coin" size={24} color="#FACC15" />
+              <Icon name="hand-coin" size={24} color="#FACC15" />
               <Text style={styles.statLabel}>Giriş</Text>
               <Text style={styles.statValue}>{ENTRY_FEE}</Text>
             </View>

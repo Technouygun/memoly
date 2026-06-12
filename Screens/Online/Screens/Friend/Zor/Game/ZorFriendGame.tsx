@@ -41,6 +41,12 @@ type CardType = {
   id: string;
   value: string;
   matchedBy?: PlayerRole;
+  openedBy?: PlayerRole;
+};
+
+const DEFAULT_COLORS = {
+  player1: "#3B82F6",
+  player2: "#EF4444",
 };
 
 const createDeck = () => {
@@ -89,7 +95,7 @@ export default function ZorFriendGame() {
       if (!snap.exists()) {
         Alert.alert(
           t.friendRoomNotFound || "Oda bulunamadı",
-          t.friendRoomClosed || "Oyun odası kapatılmış olabilir."
+          t.friendRoomClosed || "Oyun odası kapatılmış olabilir.",
         );
         goFriendHome();
         return;
@@ -175,8 +181,15 @@ export default function ZorFriendGame() {
 
     const interval = setInterval(() => {
       const startedAt = room.turnStartedAt ?? Date.now();
+      const turnLimit = room.settings?.turnTime ?? 7;
+
+      if (turnLimit === 0) {
+        setTurnTimer(0);
+        return;
+      }
+
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = Math.max(0, 7 - elapsed);
+      const remaining = Math.max(0, turnLimit - elapsed);
 
       setTurnTimer(remaining);
 
@@ -201,7 +214,7 @@ export default function ZorFriendGame() {
     if (alreadyOpen) return;
     if (openCards.length >= 2) return;
 
-    const newOpenCards = [...openCards, card];
+    const newOpenCards = [...openCards, { ...card, openedBy: myRole }];
 
     await update(roomRef, {
       openCards: newOpenCards,
@@ -264,14 +277,26 @@ export default function ZorFriendGame() {
     }
   };
 
-  const isCardOpen = (card: CardType) => {
+  const getOpenCard = (card: CardType) => {
     const openCards: CardType[] = room?.openCards ?? [];
-    return openCards.some((item) => item.id === card.id) || card.matchedBy;
+    return openCards.find((item) => item.id === card.id);
+  };
+
+  const isCardOpen = (card: CardType) => {
+    return !!getOpenCard(card) || !!card.matchedBy;
+  };
+
+  const getCardOwnerRole = (card: CardType): PlayerRole | null => {
+    const openCard = getOpenCard(card);
+    return card.matchedBy || openCard?.openedBy || null;
   };
 
   if (loading || !room?.cards) {
     return (
-      <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
+      <LinearGradient
+        colors={["#070712", "#101035", "#171753"]}
+        style={styles.center}
+      >
         <ActivityIndicator size="large" color="#00D2FF" />
         <Text style={styles.loadingText}>
           {t.hardFriendGamePreparing || "Oyun hazırlanıyor..."}
@@ -284,9 +309,20 @@ export default function ZorFriendGame() {
   const p1Score = room.scores?.player1 ?? 0;
   const p2Score = room.scores?.player2 ?? 0;
   const myTurn = room.currentTurn === myRole;
+  const playerColors = room.playerColors || DEFAULT_COLORS;
+  const playerNames = room.playerNames || {
+    player1: t.playerOne || "Oyuncu 1",
+    player2: t.playerTwo || "Oyuncu 2",
+  };
+  const activeTurnName =
+    playerNames[room.currentTurn as PlayerRole] || "Oyuncu";
+  const turnLimit = room.settings?.turnTime ?? 7;
 
   return (
-    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
+    <LinearGradient
+      colors={["#070712", "#101035", "#171753"]}
+      style={styles.container}
+    >
       <SafeAreaView style={styles.safe}>
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
@@ -309,14 +345,25 @@ export default function ZorFriendGame() {
             <Text style={styles.turnLabel}>
               {myTurn ? t.yourTurn : t.friendPlaying}
             </Text>
-            <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
-              {myTurn ? "SEN" : "RAKİP"}
+            <Text
+              style={[
+                styles.turnName,
+                {
+                  color:
+                    playerColors[room.currentTurn as PlayerRole] || "#FFFFFF",
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {activeTurnName}
             </Text>
           </View>
 
           <View style={styles.timerBox}>
-            <Text style={styles.timerNumber}>{turnTimer}</Text>
-            <Text style={styles.timerLabel}>SN</Text>
+            <Text style={styles.timerNumber}>
+              {turnLimit === 0 ? "∞" : turnTimer}
+            </Text>
+            <Text style={styles.timerLabel}>{turnLimit === 0 ? "" : "SN"}</Text>
           </View>
         </View>
 
@@ -326,13 +373,35 @@ export default function ZorFriendGame() {
         </View>
 
         <View style={styles.scoreRow}>
-          <View style={[styles.scoreCard, room.currentTurn === "player1" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerOne}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              { borderColor: playerColors.player1 },
+              room.currentTurn === "player1" && {
+                backgroundColor: "rgba(59,130,246,0.18)",
+                borderColor: playerColors.player1,
+              },
+            ]}
+          >
+            <Text style={styles.scoreLabel} numberOfLines={1}>
+              {playerNames.player1}
+            </Text>
             <Text style={styles.scoreValue}>{p1Score}</Text>
           </View>
 
-          <View style={[styles.scoreCard, room.currentTurn === "player2" && styles.activeScore]}>
-            <Text style={styles.scoreLabel}>{t.playerTwo}</Text>
+          <View
+            style={[
+              styles.scoreCard,
+              { borderColor: playerColors.player2 },
+              room.currentTurn === "player2" && {
+                backgroundColor: "rgba(239,68,68,0.18)",
+                borderColor: playerColors.player2,
+              },
+            ]}
+          >
+            <Text style={styles.scoreLabel} numberOfLines={1}>
+              {playerNames.player2}
+            </Text>
             <Text style={styles.scoreValue}>{p2Score}</Text>
           </View>
         </View>
@@ -340,14 +409,27 @@ export default function ZorFriendGame() {
         <View style={styles.board}>
           {cards.map((card) => {
             const open = isCardOpen(card);
+            const ownerRole = getCardOwnerRole(card);
+            const ownerColor = ownerRole ? playerColors[ownerRole] : undefined;
 
             return (
               <TouchableOpacity
                 key={card.id}
                 style={[
                   styles.card,
-                  open && styles.openCard,
-                  card.matchedBy && styles.matchedCard,
+                  open &&
+                    ownerColor && {
+                      backgroundColor:
+                        ownerRole === "player1"
+                          ? "rgba(59,130,246,0.30)"
+                          : "rgba(239,68,68,0.30)",
+                      borderColor: ownerColor,
+                      shadowColor: ownerColor,
+                      shadowOpacity: 0.55,
+                      shadowRadius: 8,
+                      elevation: 7,
+                    },
+                  open && !ownerColor && styles.openCard,
                 ]}
                 onPress={() => handleCardPress(card)}
                 activeOpacity={0.82}
@@ -455,14 +537,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     fontSize: 14,
     fontWeight: "900",
-  },
-
-  myTurn: {
-    color: "#22C55E",
-  },
-
-  opponentTurn: {
-    color: "#FB923C",
   },
 
   timerBox: {
