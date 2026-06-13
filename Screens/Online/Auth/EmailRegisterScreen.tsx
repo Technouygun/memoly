@@ -88,6 +88,11 @@ export default function EmailRegisterScreen() {
         isGuest: false,
         email: cleanEmail,
         coins: 300,
+        jokers: {
+          detective: 1,
+          bomb: 1,
+          golden: 1,
+        },
         createdAt: serverTimestamp(),
       });
 

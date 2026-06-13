@@ -25,14 +25,14 @@ type PlayerInfo = {
 
 type PlayerColor = {
   name: "Sarı" | "Mavi" | "Kırmızı" | "Turuncu";
-  value: string;
+  hex: string;
 };
 
 const colorOptions: PlayerColor[] = [
-  { name: "Sarı", value: "#FACC15" },
-  { name: "Mavi", value: "#38BDF8" },
-  { name: "Kırmızı", value: "#EF4444" },
-  { name: "Turuncu", value: "#FB923C" },
+  { name: "Sarı", hex: "#FACC15" },
+  { name: "Mavi", hex: "#38BDF8" },
+  { name: "Kırmızı", hex: "#EF4444" },
+  { name: "Turuncu", hex: "#FB923C" },
 ];
 
 export default function LocalMultiplayerScreen() {
@@ -243,20 +243,20 @@ export default function LocalMultiplayerScreen() {
 
                     <View style={styles.colorRow}>
                       {colorOptions.map((color) => {
-                        const active = player.color === color.value;
-                        const used = isColorUsed(color.value, playerIndex);
+                        const active = player.color === color.hex;
+                        const used = isColorUsed(color.hex, playerIndex);
 
                         return (
                           <TouchableOpacity
-                            key={color.value}
+                            key={color.hex}
                             disabled={used}
                             style={[
                               styles.colorButton,
-                              { borderColor: color.value },
-                              active && { backgroundColor: color.value },
+                              { borderColor: color.hex },
+                              active && { backgroundColor: color.hex },
                               used && !active && styles.usedColorButton,
                             ]}
-                            onPress={() => updatePlayerColor(playerIndex, color.value)}
+                            onPress={() => updatePlayerColor(playerIndex, color.hex)}
                             activeOpacity={0.85}
                           >
                             <Text
