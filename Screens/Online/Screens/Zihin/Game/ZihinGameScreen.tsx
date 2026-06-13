@@ -7,30 +7,54 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
-import { ref, onValue, update, get } from "firebase/database";
-import { doc, onSnapshot, runTransaction } from "firebase/firestore";
+import {
+  ref,
+  onValue,
+  update,
+  get,
+  serverTimestamp,
+} from "firebase/database";import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 import { db, firestore } from "../../../../../firebaseConfig";
 import { useLanguage } from "../../../../language/LanguageContext";
 
 const EMOJIS = [
-  "🍎", "🍌", "🍇", "🍓", "🍒", "🍉",
-  "🥝", "🍍", "🍑", "🍋", "🍊", "🥥",
-  "🥕", "🌽", "🥦", "🍔", "🍕", "🍟",
-  "⚽", "🏀", "🎲", "🎯", "🚗", "🚀",
+  "🍎",
+  "🍌",
+  "🍇",
+  "🍓",
+  "🍒",
+  "🍉",
+  "🥝",
+  "🍍",
+  "🍑",
+  "🍋",
+  "🍊",
+  "🥥",
+  "🥕",
+  "🌽",
+  "🥦",
+  "🍔",
+  "🍕",
+  "🍟",
+  "⚽",
+  "🏀",
+  "🎲",
+  "🎯",
+  "🚗",
+  "🚀",
 ];
-const { width, height } = Dimensions.get("window");
-
-const CARD_GAP = 4;
-const CARD_SIZE = Math.min(
-  (width - 36 - CARD_GAP * 7) / 8,
-  (height - 210 - CARD_GAP * 5) / 6
-);
+const BOARD_COLUMNS = 6;
+const BOARD_ROWS = 8;
 const TURN_SECONDS = 7;
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
 
 type PlayerRole = "player1" | "player2";
 
@@ -75,6 +99,40 @@ export default function ZihinGameScreen() {
   const route = useRoute<any>();
   const { roomId } = route.params;
   const { t } = useLanguage();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const boardLayout = useMemo(() => {
+    const horizontalPadding = screenWidth < 380 ? 8 : 10;
+    const cardGap = screenWidth < 380 ? 4 : 5;
+    const topContentHeight = screenHeight < 720 ? 188 : 210;
+    const safeBottomSpace = screenHeight < 720 ? 8 : 14;
+
+    const availableWidth =
+      screenWidth - horizontalPadding * 2 - cardGap * (BOARD_COLUMNS - 1);
+    const availableHeight =
+      screenHeight -
+      topContentHeight -
+      safeBottomSpace -
+      cardGap * (BOARD_ROWS - 1);
+
+    const sizeByWidth = availableWidth / BOARD_COLUMNS;
+    const sizeByHeight = availableHeight / BOARD_ROWS;
+    const cardSize = Math.floor(Math.max(34, Math.min(sizeByWidth, sizeByHeight)));
+
+    const boardWidth = cardSize * BOARD_COLUMNS + cardGap * (BOARD_COLUMNS - 1);
+    const boardHeight = cardSize * BOARD_ROWS + cardGap * (BOARD_ROWS - 1);
+
+    return {
+      cardGap,
+      cardSize,
+      boardWidth,
+      boardHeight,
+      horizontalPadding,
+      cardRadius: clamp(cardSize * 0.2, 9, 16),
+      emojiSize: clamp(cardSize * 0.58, 22, 38),
+      closedMarkSize: clamp(cardSize * 0.3, 11, 18),
+    };
+  }, [screenWidth, screenHeight]);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -84,7 +142,8 @@ export default function ZihinGameScreen() {
   const [loading, setLoading] = useState(true);
   const [turnTimer, setTurnTimer] = useState(TURN_SECONDS);
   const [detectiveTimer, setDetectiveTimer] = useState(0);
-  const [myJokerCounts, setMyJokerCounts] = useState<JokerCounts>(EMPTY_JOKER_COUNTS);
+  const [myJokerCounts, setMyJokerCounts] =
+    useState<JokerCounts>(EMPTY_JOKER_COUNTS);
 
   const lockRef = useRef(false);
   const resultNavigatedRef = useRef(false);
@@ -94,7 +153,6 @@ export default function ZihinGameScreen() {
   const jokerSpendRef = useRef(false);
 
   const roomRef = useMemo(() => ref(db, `zihinRooms/${roomId}`), [roomId]);
-
 
   const normalizeJokerCounts = (value: any): JokerCounts => ({
     detective: Math.max(0, Number(value?.detective ?? 0)),
@@ -182,7 +240,10 @@ export default function ZihinGameScreen() {
 
     const unsub = onValue(roomRef, async (snap) => {
       if (!snap.exists()) {
-        Alert.alert(t.roomNotFound || "Oda bulunamadı", t.roomClosed || "Oda kapatıldı.");
+        Alert.alert(
+          t.roomNotFound || "Oda bulunamadı",
+          t.roomClosed || "Oda kapatıldı.",
+        );
         navigation.replace("OnlineTabs");
         return;
       }
@@ -208,20 +269,33 @@ export default function ZihinGameScreen() {
             player2: 0,
           },
           status: "playing",
-          turnStartedAt: Date.now(),
-          jokers: createInitialJokers(),
-          detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
+turnStartedAt: serverTimestamp(),          jokers: createInitialJokers(),
+          detectiveJoker: {
+            active: false,
+            owner: null,
+            cardId: null,
+            endsAt: null,
+          },
         });
       }
 
       if (data.cards && !data.jokers && role === "player1") {
         await update(roomRef, {
           jokers: createInitialJokers(),
-          detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
+          detectiveJoker: {
+            active: false,
+            owner: null,
+            cardId: null,
+            endsAt: null,
+          },
         });
       }
 
-      if (data.status === "surrendered" && role && !resultNavigatedRef.current) {
+      if (
+        data.status === "surrendered" &&
+        role &&
+        !resultNavigatedRef.current
+      ) {
         resultNavigatedRef.current = true;
 
         if (data.winnerRole === role) {
@@ -273,32 +347,43 @@ export default function ZihinGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: nextTurn,
-      turnStartedAt: Date.now(),
-    });
+turnStartedAt: serverTimestamp(),    });
 
     timeoutRunningRef.current = false;
   };
 
   useEffect(() => {
-    if (!room || room.status !== "playing" || !room.currentTurn) return;
+  if (!room || room.status !== "playing" || !room.currentTurn) return;
 
-    const interval = setInterval(() => {
-      const startedAt = room.turnStartedAt ?? Date.now();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      if (room.detectiveJoker?.active) return;
-      const remaining = Math.max(0, TURN_SECONDS - elapsed);
+  // Sıra bende değilse timer çalıştırma
+  if (room.currentTurn !== myRole) {
+    setTurnTimer(0);
+    return;
+  }
 
-      setTurnTimer(remaining);
+  const interval = setInterval(() => {
+    const startedAt = room.turnStartedAt ?? Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
 
-      if (remaining <= 0) {
-        changeTurnByTimeout();
-      }
-    }, 300);
+    if (room.detectiveJoker?.active) return;
 
-    return () => clearInterval(interval);
-  }, [room?.currentTurn, room?.turnStartedAt, room?.status, room?.detectiveJoker?.active, myRole]);
+    const remaining = Math.max(0, TURN_SECONDS - elapsed);
 
+    setTurnTimer(remaining);
 
+    if (remaining <= 0) {
+      changeTurnByTimeout();
+    }
+  }, 250);
+
+  return () => clearInterval(interval);
+}, [
+  room?.currentTurn,
+  room?.turnStartedAt,
+  room?.status,
+  room?.detectiveJoker?.active,
+  myRole,
+]);
 
   useEffect(() => {
     if (!room?.detectiveJoker?.active || !room?.detectiveJoker?.endsAt) {
@@ -328,9 +413,13 @@ export default function ZihinGameScreen() {
       detectiveEndingRef.current = true;
 
       await update(roomRef, {
-        detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
-        turnStartedAt: Date.now(),
-      });
+        detectiveJoker: {
+          active: false,
+          owner: null,
+          cardId: null,
+          endsAt: null,
+        },
+turnStartedAt: serverTimestamp(),      });
 
       detectiveEndingRef.current = false;
     }, remaining);
@@ -378,8 +467,12 @@ export default function ZihinGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: myRole,
-      turnStartedAt: Date.now(),
-      detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
+turnStartedAt: serverTimestamp(),      detectiveJoker: {
+        active: false,
+        owner: null,
+        cardId: null,
+        endsAt: null,
+      },
     });
   };
 
@@ -421,18 +514,14 @@ export default function ZihinGameScreen() {
   };
 
   const confirmSurrender = () => {
-    Alert.alert(
-      "Pes Et",
-      "Pes edersen kaybedersin. Emin misin?",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Pes Et",
-          style: "destructive",
-          onPress: surrenderGame,
-        },
-      ]
-    );
+    Alert.alert("Pes Et", "Pes edersen kaybedersin. Emin misin?", [
+      { text: "Vazgeç", style: "cancel" },
+      {
+        text: "Pes Et",
+        style: "destructive",
+        onPress: surrenderGame,
+      },
+    ]);
   };
 
   const handleCardPress = async (card: CardType) => {
@@ -504,24 +593,22 @@ export default function ZihinGameScreen() {
 
           const finished = updatedCards.every((item) => item.matchedBy);
 
-
           await update(roomRef, {
             cards: updatedCards,
             scores: newScores,
             openCards: [],
             status: finished ? "finished" : "playing",
             finishedAt: finished ? Date.now() : null,
-            turnStartedAt: Date.now(),
-            [`jokers/${myRole}/goldenActive`]: false,
+turnStartedAt: serverTimestamp(),            [`jokers/${myRole}/goldenActive`]: false,
           });
         } else {
-          const nextTurn: PlayerRole = myRole === "player1" ? "player2" : "player1";
+          const nextTurn: PlayerRole =
+            myRole === "player1" ? "player2" : "player1";
 
           await update(roomRef, {
             openCards: [],
             currentTurn: nextTurn,
-            turnStartedAt: Date.now(),
-            [`jokers/${myRole}/goldenActive`]: false,
+turnStartedAt: serverTimestamp(),            [`jokers/${myRole}/goldenActive`]: false,
           });
         }
 
@@ -532,7 +619,8 @@ export default function ZihinGameScreen() {
 
   const getOpenCardRole = (card: CardType): PlayerRole | undefined => {
     if (card.matchedBy) return card.matchedBy;
-    if (room?.detectiveJoker?.cardId === card.id) return room.detectiveJoker.owner;
+    if (room?.detectiveJoker?.cardId === card.id)
+      return room.detectiveJoker.owner;
 
     const openCards: CardType[] = room?.openCards ?? [];
     const openedCard = openCards.find((item) => item.id === card.id);
@@ -546,9 +634,14 @@ export default function ZihinGameScreen() {
 
   if (loading || !room?.cards) {
     return (
-      <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
+      <LinearGradient
+        colors={["#070712", "#101035", "#171753"]}
+        style={styles.center}
+      >
         <ActivityIndicator size="large" color="#00D2FF" />
-        <Text style={styles.loadingText}>{t.gamePreparing || "Oyun hazırlanıyor..."}</Text>
+        <Text style={styles.loadingText}>
+          {t.gamePreparing || "Oyun hazırlanıyor..."}
+        </Text>
       </LinearGradient>
     );
   }
@@ -558,16 +651,29 @@ export default function ZihinGameScreen() {
   const p2Score = room.scores?.player2 ?? 0;
   const myTurn = room.currentTurn === myRole;
   const currentTurnName =
-    room.currentTurn === "player1" ? getPlayerName("player1") : getPlayerName("player2");
+    room.currentTurn === "player1"
+      ? getPlayerName("player1")
+      : getPlayerName("player2");
   const myJokers = getMyJokers();
-  const detectiveReady = myTurn && myJokerCounts.detective > 0 && !room.detectiveJoker?.active;
+  const detectiveReady =
+    myTurn && myJokerCounts.detective > 0 && !room.detectiveJoker?.active;
   const bombReady = !myTurn && myJokerCounts.bomb > 0;
-  const goldenReady = myTurn && myJokerCounts.golden > 0 && !myJokers?.goldenActive;
+  const goldenReady =
+    myTurn && myJokerCounts.golden > 0 && !myJokers?.goldenActive;
   const goldenActive = !!myJokers?.goldenActive;
 
   return (
-    <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
-      <SafeAreaView style={styles.safe}>
+    <LinearGradient
+      colors={["#070712", "#101035", "#171753"]}
+      style={styles.container}
+    >
+      <SafeAreaView
+        style={[
+          styles.safe,
+          { paddingHorizontal: boardLayout.horizontalPadding },
+        ]}
+      >
+        <View style={{ height: 20}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -582,8 +688,17 @@ export default function ZihinGameScreen() {
           </TouchableOpacity>
 
           <View style={styles.turnPill}>
-            <Text style={styles.turnLabel}>{myTurn ? t.yourTurn || "Sıra sende" : t.opponentPlaying || "Rakip oynuyor"}</Text>
-            <Text style={[styles.turnName, myTurn ? styles.myTurn : styles.opponentTurn]}>
+            <Text style={styles.turnLabel}>
+              {myTurn
+                ? t.yourTurn || "Sıra sende"
+                : t.opponentPlaying || "Rakip oynuyor"}
+            </Text>
+            <Text
+              style={[
+                styles.turnName,
+                myTurn ? styles.myTurn : styles.opponentTurn,
+              ]}
+            >
               {myTurn ? "SEN" : currentTurnName}
             </Text>
           </View>
@@ -602,7 +717,9 @@ export default function ZihinGameScreen() {
               room.currentTurn === "player1" && styles.activePlayerOneScore,
             ]}
           >
-            <Text numberOfLines={1} style={styles.scoreLabel}>{getPlayerName("player1")}</Text>
+            <Text numberOfLines={1} style={styles.scoreLabel}>
+              {getPlayerName("player1")}
+            </Text>
             <Text style={styles.scoreValue}>{p1Score}</Text>
           </View>
 
@@ -613,7 +730,9 @@ export default function ZihinGameScreen() {
               room.currentTurn === "player2" && styles.activePlayerTwoScore,
             ]}
           >
-            <Text numberOfLines={1} style={styles.scoreLabel}>{getPlayerName("player2")}</Text>
+            <Text numberOfLines={1} style={styles.scoreLabel}>
+              {getPlayerName("player2")}
+            </Text>
             <Text style={styles.scoreValue}>{p2Score}</Text>
           </View>
         </View>
@@ -639,7 +758,9 @@ export default function ZihinGameScreen() {
                 <Text style={styles.jokerSub}>4 SN TARAMA</Text>
               </View>
               <View style={styles.jokerCountBadge}>
-                <Text style={styles.jokerCountText}>x{myJokerCounts.detective}</Text>
+                <Text style={styles.jokerCountText}>
+                  x{myJokerCounts.detective}
+                </Text>
               </View>
               <View style={styles.jokerStatusDot} />
             </LinearGradient>
@@ -689,27 +810,43 @@ export default function ZihinGameScreen() {
               <Text style={styles.jokerIcon}>◆</Text>
               <View style={styles.jokerTextBox}>
                 <Text style={styles.jokerTitle}>ALTIN</Text>
-                <Text style={styles.jokerSub}>{goldenActive ? "2X AKTİF" : "2X PUAN"}</Text>
+                <Text style={styles.jokerSub}>
+                  {goldenActive ? "2X AKTİF" : "2X PUAN"}
+                </Text>
               </View>
               <View style={styles.jokerCountBadge}>
-                <Text style={styles.jokerCountText}>x{myJokerCounts.golden}</Text>
+                <Text style={styles.jokerCountText}>
+                  x{myJokerCounts.golden}
+                </Text>
               </View>
               <View style={styles.jokerStatusDot} />
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {room.detectiveJoker?.active && room.detectiveJoker?.owner === myRole && (
-          <View style={styles.detectiveTimerPanel}>
-            <Text style={styles.detectiveTimerTitle}>DEDEKTİF MODU</Text>
-            <Text style={styles.detectiveTimerText}>{detectiveTimer} SN</Text>
-            <Text style={styles.detectiveTimerSub}>
-              {room.detectiveJoker?.cardId ? "Kart seçildi. Süre bitince kapanacak." : "Sadece 1 kart seçebilirsin."}
-            </Text>
-          </View>
-        )}
+        {room.detectiveJoker?.active &&
+          room.detectiveJoker?.owner === myRole && (
+            <View style={styles.detectiveTimerPanel}>
+              <Text style={styles.detectiveTimerTitle}>DEDEKTİF MODU</Text>
+              <Text style={styles.detectiveTimerText}>{detectiveTimer} SN</Text>
+              <Text style={styles.detectiveTimerSub}>
+                {room.detectiveJoker?.cardId
+                  ? "Kart seçildi. Süre bitince kapanacak."
+                  : "Sadece 1 kart seçebilirsin."}
+              </Text>
+            </View>
+          )}
 
-        <View style={styles.board}>
+        <View
+          style={[
+            styles.board,
+            {
+              width: boardLayout.boardWidth,
+              height: boardLayout.boardHeight,
+              gap: boardLayout.cardGap,
+            },
+          ]}
+        >
           {cards.map((card) => {
             const open = isCardOpen(card);
             const openCardRole = getOpenCardRole(card);
@@ -719,6 +856,11 @@ export default function ZihinGameScreen() {
                 key={card.id}
                 style={[
                   styles.card,
+                  {
+                    width: boardLayout.cardSize,
+                    height: boardLayout.cardSize,
+                    borderRadius: boardLayout.cardRadius,
+                  },
                   open && styles.openCard,
                   openCardRole === "player1" && styles.playerOneOpenCard,
                   openCardRole === "player2" && styles.playerTwoOpenCard,
@@ -727,9 +869,59 @@ export default function ZihinGameScreen() {
                 ]}
                 onPress={() => handleCardPress(card)}
                 activeOpacity={0.82}
-                disabled={(!myTurn && !room.detectiveJoker?.active) || !!card.matchedBy}
+                disabled={
+                  (!myTurn && !room.detectiveJoker?.active) || !!card.matchedBy
+                }
               >
-                <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
+                {open ? (
+                  <LinearGradient
+                    colors={[
+                      "rgba(255,255,255,0.20)",
+                      "rgba(255,255,255,0.04)",
+                    ]}
+                    style={styles.cardFace}
+                  >
+                    <Text
+                      style={[
+                        styles.cardText,
+                        { fontSize: boardLayout.emojiSize },
+                      ]}
+                    >
+                      {card.value}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <LinearGradient
+                    colors={[
+                      "rgba(0,210,255,0.18)",
+                      "rgba(124,58,237,0.13)",
+                      "rgba(255,255,255,0.04)",
+                    ]}
+                    style={styles.cardFace}
+                  >
+                    <View style={styles.closedCardHalo} />
+                    <View
+                      style={[
+                        styles.closedCardCore,
+                        {
+                          width: boardLayout.closedMarkSize * 1.8,
+                          height: boardLayout.closedMarkSize * 1.8,
+                          borderRadius: boardLayout.closedMarkSize * 0.45,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.closedCardMark,
+                          { fontSize: boardLayout.closedMarkSize },
+                        ]}
+                      >
+                        ✦
+                      </Text>
+                    </View>
+                    <View style={styles.closedCardLine} />
+                  </LinearGradient>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -741,7 +933,7 @@ export default function ZihinGameScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safe: { flex: 1, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14 },
+  safe: { flex: 1, paddingTop: 8, paddingBottom: 10 },
 
   center: {
     flex: 1,
@@ -857,7 +1049,7 @@ const styles = StyleSheet.create({
   scoreRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   scoreCard: {
@@ -902,10 +1094,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-
-
   jokerPanel: {
-    height: 58,
+    height: 54,
     flexDirection: "row",
     gap: 7,
     marginBottom: 8,
@@ -1064,20 +1254,31 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: CARD_GAP,
     justifyContent: "center",
     alignContent: "center",
+    paddingVertical: 2,
   },
 
   card: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1.4,
-    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.075)",
+    borderWidth: 1.3,
+    borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#00D2FF",
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+
+  cardFace: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
 
   openCard: {
@@ -1107,7 +1308,46 @@ const styles = StyleSheet.create({
 
   cardText: {
     color: "#FFFFFF",
-    fontSize: 34,
     fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.30)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  closedCardHalo: {
+    position: "absolute",
+    width: "72%",
+    height: "72%",
+    borderRadius: 999,
+    backgroundColor: "rgba(0,210,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+
+  closedCardCore: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "45deg" }],
+  },
+
+  closedCardMark: {
+    color: "#BFF6FF",
+    fontWeight: "900",
+    transform: [{ rotate: "-45deg" }],
+    textShadowColor: "rgba(0,210,255,0.65)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+
+  closedCardLine: {
+    position: "absolute",
+    bottom: 7,
+    width: "42%",
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.20)",
   },
 });

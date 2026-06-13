@@ -45,6 +45,8 @@ export default function FriendLig() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
+                  <View style={{ height: 20}} />
+        
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -61,14 +63,7 @@ export default function FriendLig() {
           <Text style={styles.title}>{t.friendGame}</Text>
           <Text style={styles.subtitle}>{t.friendGameSubtitle}</Text>
 
-          {friendNickname ? (
-            <View style={styles.opponentBox}>
-              <Icon name="account-sword" size={22} color="#FACC15" />
-              <Text numberOfLines={1} style={styles.opponentText}>
-                {t.opponent}: {friendNickname}
-              </Text>
-            </View>
-          ) : null}
+         
         </View>
 
         <View style={styles.levelArea}>

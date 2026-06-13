@@ -103,6 +103,7 @@ export default function LocalMultiplayerScreen() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 30}} />
         <KeyboardAvoidingView
           style={styles.keyboard}
           behavior={Platform.OS === "ios" ? "padding" : undefined}

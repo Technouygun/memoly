@@ -145,7 +145,9 @@ export default function FirstOnline() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
+          <View style={{ height: 30}} />
           <View style={styles.topBar}>
+
             <TouchableOpacity
               style={styles.circleButton}
               onPress={() => navigation.navigate("OnlineInfo")}
@@ -336,7 +338,7 @@ export default function FirstOnline() {
             );
           })}
 
-          <View style={{ height: 42 }} />
+          <View style={{ height: 90 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

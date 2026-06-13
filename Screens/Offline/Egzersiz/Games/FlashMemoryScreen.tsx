@@ -113,6 +113,7 @@ export default function FlashMemoryScreen() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 50}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -182,6 +183,7 @@ export default function FlashMemoryScreen() {
             <Text style={styles.infoText}>🎯 {t.pressSameOrder}</Text>
           )}
         </View>
+        <View style={{ height: 50}} />
       </SafeAreaView>
     </LinearGradient>
   );

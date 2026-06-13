@@ -312,6 +312,7 @@ export default function OrtaFriendGame() {
   if (loading || !room?.cards) {
     return (
       <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.center}>
+
         <ActivityIndicator size="large" color="#00D2FF" />
         <Text style={styles.loadingText}>
           {t.mediumFriendGamePreparing || "Oyun hazırlanıyor..."}
@@ -330,6 +331,7 @@ export default function OrtaFriendGame() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 40}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 

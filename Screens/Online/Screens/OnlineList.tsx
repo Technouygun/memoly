@@ -160,6 +160,7 @@ export default function OnlineList() {
     const rankColor = getRankColor(item.rank);
 
     return (
+      
       <View style={[styles.row, item.uid === auth.currentUser?.uid && styles.myRow]}>
         <View style={[styles.rankBadge, { borderColor: rankColor }]}>
           {item.rank <= 3 ? (
@@ -245,6 +246,8 @@ export default function OnlineList() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.page}>
       <SafeAreaView style={styles.safe}>
+                  <View style={{ height: 50}} />
+        
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 

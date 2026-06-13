@@ -21,6 +21,7 @@ export default function HomeScreen() {
       colors={["#070712", "#101035", "#171753"]}
       style={styles.container}
     >
+      <View style={{ height: 10}} />
       <View style={styles.glowOne} />
       <View style={styles.glowTwo} />
 
@@ -85,6 +86,7 @@ export default function HomeScreen() {
           <Text style={styles.offlineButtonText}>⚡ {t.offlineModes}</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ height: 30}} />
     </LinearGradient>
   );
 }

@@ -7,17 +7,21 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
-import { ref, onValue, update, get } from "firebase/database";
-import { doc, onSnapshot, runTransaction } from "firebase/firestore";
+import {
+  ref,
+  onValue,
+  update,
+  get,
+  serverTimestamp,
+} from "firebase/database";import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 import { db, firestore } from "../../../../../firebaseConfig";
 import { useLanguage } from "../../../../language/LanguageContext";
 
-const { width, height } = Dimensions.get("window");
 
 const EMOJIS = [
   "🍎",
@@ -34,18 +38,17 @@ const EMOJIS = [
   "🍊",
   "🍐",
   "🥭",
-  "🍈",
-  "🫐",
-  "🍏",
-  "🥑",
+  "S",
+  "A"
 ];
 
-const CARD_GAP = 5;
-const CARD_SIZE = Math.min(
-  (width - 36 - CARD_GAP * 5) / 6,
-  (height - 300 - CARD_GAP * 5) / 6,
-);
+const BOARD_COLUMNS = 4;
+const BOARD_ROWS = 8;
 const TURN_SECONDS = 7;
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
 
 type PlayerRole = "player1" | "player2";
 
@@ -90,6 +93,42 @@ export default function HafizaGameScreen() {
   const route = useRoute<any>();
   const { roomId } = route.params;
   const { t } = useLanguage();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const boardLayout = useMemo(() => {
+    const horizontalPadding = screenWidth < 380 ? 6 : 8;
+    const cardGap = screenHeight < 720 ? 4 : 5;
+    const topContentHeight = screenHeight < 720 ? 166 : 184;
+    const safeBottomSpace = screenHeight < 720 ? 6 : 10;
+
+    const availableWidth =
+      screenWidth - horizontalPadding * 2 - cardGap * (BOARD_COLUMNS - 1);
+    const availableHeight =
+      screenHeight -
+      topContentHeight -
+      safeBottomSpace -
+      cardGap * (BOARD_ROWS - 1);
+
+    const sizeByWidth = availableWidth / BOARD_COLUMNS;
+    const sizeByHeight = availableHeight / BOARD_ROWS;
+    const cardSize = Math.floor(
+      clamp(Math.min(sizeByWidth, sizeByHeight), 44, 65),
+    );
+
+    const boardWidth = cardSize * BOARD_COLUMNS + cardGap * (BOARD_COLUMNS - 1);
+    const boardHeight = cardSize * BOARD_ROWS + cardGap * (BOARD_ROWS - 1);
+
+    return {
+      cardGap,
+      cardSize,
+      boardWidth,
+      boardHeight,
+      horizontalPadding,
+      cardRadius: clamp(cardSize * 0.2, 10, 18),
+      emojiSize: clamp(cardSize * 0.58, 24, 46),
+      closedMarkSize: clamp(cardSize * 0.3, 12, 22),
+    };
+  }, [screenWidth, screenHeight]);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -226,7 +265,7 @@ export default function HafizaGameScreen() {
             player2: 0,
           },
           status: "playing",
-          turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
           jokers: createInitialJokers(),
           detectiveJoker: {
             active: false,
@@ -305,36 +344,44 @@ export default function HafizaGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: nextTurn,
-      turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
     });
 
     timeoutRunningRef.current = false;
   };
 
   useEffect(() => {
-    if (!room || room.status !== "playing" || !room.currentTurn) return;
+  if (!room || room.status !== "playing" || !room.currentTurn) return;
 
-    const interval = setInterval(() => {
-      const startedAt = room.turnStartedAt ?? Date.now();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      if (room.detectiveJoker?.active) return;
-      const remaining = Math.max(0, TURN_SECONDS - elapsed);
+  // Sıra bende değilse timer çalıştırma
+  if (room.currentTurn !== myRole) {
+    setTurnTimer(0);
+    return;
+  }
 
-      setTurnTimer(remaining);
+  const interval = setInterval(() => {
+    const startedAt = room.turnStartedAt ?? Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
 
-      if (remaining <= 0) {
-        changeTurnByTimeout();
-      }
-    }, 300);
+    if (room.detectiveJoker?.active) return;
 
-    return () => clearInterval(interval);
-  }, [
-    room?.currentTurn,
-    room?.turnStartedAt,
-    room?.status,
-    room?.detectiveJoker?.active,
-    myRole,
-  ]);
+    const remaining = Math.max(0, TURN_SECONDS - elapsed);
+
+    setTurnTimer(remaining);
+
+    if (remaining <= 0) {
+      changeTurnByTimeout();
+    }
+  }, 250);
+
+  return () => clearInterval(interval);
+}, [
+  room?.currentTurn,
+  room?.turnStartedAt,
+  room?.status,
+  room?.detectiveJoker?.active,
+  myRole,
+]);
 
   useEffect(() => {
     if (!room?.detectiveJoker?.active || !room?.detectiveJoker?.endsAt) {
@@ -370,7 +417,7 @@ export default function HafizaGameScreen() {
           cardId: null,
           endsAt: null,
         },
-        turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
       });
 
       detectiveEndingRef.current = false;
@@ -419,7 +466,7 @@ export default function HafizaGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: myRole,
-      turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
       detectiveJoker: {
         active: false,
         owner: null,
@@ -552,7 +599,7 @@ export default function HafizaGameScreen() {
             openCards: [],
             status: finished ? "finished" : "playing",
             finishedAt: finished ? Date.now() : null,
-            turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
             [`jokers/${myRole}/goldenActive`]: false,
           });
         } else {
@@ -562,7 +609,7 @@ export default function HafizaGameScreen() {
           await update(roomRef, {
             openCards: [],
             currentTurn: nextTurn,
-            turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
             [`jokers/${myRole}/goldenActive`]: false,
           });
         }
@@ -622,7 +669,13 @@ export default function HafizaGameScreen() {
       colors={["#070712", "#101035", "#171753"]}
       style={styles.container}
     >
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView
+        style={[
+          styles.safe,
+          { paddingHorizontal: boardLayout.horizontalPadding },
+        ]}
+      >
+        <View style={{ height: 20}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -786,7 +839,16 @@ export default function HafizaGameScreen() {
             </View>
           )}
 
-        <View style={styles.board}>
+        <View
+          style={[
+            styles.board,
+            {
+              width: boardLayout.boardWidth,
+              height: boardLayout.boardHeight,
+              gap: boardLayout.cardGap,
+            },
+          ]}
+        >
           {cards.map((card) => {
             const open = isCardOpen(card);
             const openCardRole = getOpenCardRole(card);
@@ -796,6 +858,11 @@ export default function HafizaGameScreen() {
                 key={card.id}
                 style={[
                   styles.card,
+                  {
+                    width: boardLayout.cardSize,
+                    height: boardLayout.cardSize,
+                    borderRadius: boardLayout.cardRadius,
+                  },
                   open && styles.openCard,
                   openCardRole === "player1" && styles.playerOneOpenCard,
                   openCardRole === "player2" && styles.playerTwoOpenCard,
@@ -808,7 +875,55 @@ export default function HafizaGameScreen() {
                   (!myTurn && !room.detectiveJoker?.active) || !!card.matchedBy
                 }
               >
-                <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
+                {open ? (
+                  <LinearGradient
+                    colors={[
+                      "rgba(255,255,255,0.20)",
+                      "rgba(255,255,255,0.04)",
+                    ]}
+                    style={styles.cardFace}
+                  >
+                    <Text
+                      style={[
+                        styles.cardText,
+                        { fontSize: boardLayout.emojiSize },
+                      ]}
+                    >
+                      {card.value}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <LinearGradient
+                    colors={[
+                      "rgba(0,210,255,0.18)",
+                      "rgba(124,58,237,0.13)",
+                      "rgba(255,255,255,0.04)",
+                    ]}
+                    style={styles.cardFace}
+                  >
+                    <View style={styles.closedCardHalo} />
+                    <View
+                      style={[
+                        styles.closedCardCore,
+                        {
+                          width: boardLayout.closedMarkSize * 1.8,
+                          height: boardLayout.closedMarkSize * 1.8,
+                          borderRadius: boardLayout.closedMarkSize * 0.45,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.closedCardMark,
+                          { fontSize: boardLayout.closedMarkSize },
+                        ]}
+                      >
+                        ✦
+                      </Text>
+                    </View>
+                    <View style={styles.closedCardLine} />
+                  </LinearGradient>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -820,7 +935,7 @@ export default function HafizaGameScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safe: { flex: 1, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 8 },
+  safe: { flex: 1, paddingTop: 8, paddingBottom: 8 },
 
   center: {
     flex: 1,
@@ -1138,23 +1253,34 @@ const styles = StyleSheet.create({
   },
 
   board: {
-    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: CARD_GAP,
     justifyContent: "center",
     alignContent: "center",
+    alignSelf: "center",
+    paddingVertical: 2,
   },
 
   card: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    borderRadius: 9,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.075)",
+    borderWidth: 1.3,
+    borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#00D2FF",
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+
+  cardFace: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
 
   openCard: {
@@ -1184,7 +1310,46 @@ const styles = StyleSheet.create({
 
   cardText: {
     color: "#FFFFFF",
-    fontSize: Math.max(15, CARD_SIZE * 0.45),
     fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.30)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  closedCardHalo: {
+    position: "absolute",
+    width: "72%",
+    height: "72%",
+    borderRadius: 999,
+    backgroundColor: "rgba(0,210,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+
+  closedCardCore: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "45deg" }],
+  },
+
+  closedCardMark: {
+    color: "#BFF6FF",
+    fontWeight: "900",
+    transform: [{ rotate: "-45deg" }],
+    textShadowColor: "rgba(0,210,255,0.65)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+
+  closedCardLine: {
+    position: "absolute",
+    bottom: 7,
+    width: "42%",
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.20)",
   },
 });

@@ -220,6 +220,7 @@ export default function GameScreen() {
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 50}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -346,6 +347,7 @@ export default function GameScreen() {
             );
           })}
         </View>
+        <View style={{ height: 20}} />
       </SafeAreaView>
     </LinearGradient>
   );

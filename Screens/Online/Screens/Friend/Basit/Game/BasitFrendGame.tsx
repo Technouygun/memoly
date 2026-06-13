@@ -341,6 +341,7 @@ export default function BasitFriendGame() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 40}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 

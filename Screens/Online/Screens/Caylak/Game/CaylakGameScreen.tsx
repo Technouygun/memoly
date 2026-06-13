@@ -7,21 +7,29 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { getAuth } from "firebase/auth";
-import { ref, onValue, update, get } from "firebase/database";
-import { doc, onSnapshot, runTransaction } from "firebase/firestore";
+import {
+  ref,
+  onValue,
+  update,
+  get,
+  serverTimestamp,
+} from "firebase/database";import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 import { db, firestore } from "../../../../../firebaseConfig";
 import { useLanguage } from "../../../../language/LanguageContext";
 
 const EMOJIS = ["🍎", "🍌", "🍇", "🍓", "🍒", "🍉", "🥝", "🍍"];
-const { width } = Dimensions.get("window");
-const CARD_GAP = 8;
-const CARD_SIZE = (width - 40 - CARD_GAP * 3) / 4;
+const BOARD_COLUMNS = 4;
+const BOARD_ROWS = 4;
 const TURN_SECONDS = 7;
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
 
 type PlayerRole = "player1" | "player2";
 
@@ -66,6 +74,40 @@ export default function CaylakGameScreen() {
   const route = useRoute<any>();
   const { roomId } = route.params;
   const { t } = useLanguage();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const boardLayout = useMemo(() => {
+    const horizontalPadding = screenWidth < 380 ? 10 : 14;
+    const cardGap = screenWidth < 380 ? 7 : 8;
+    const topContentHeight = screenHeight < 720 ? 188 : 210;
+    const safeBottomSpace = screenHeight < 720 ? 10 : 16;
+
+    const availableWidth =
+      screenWidth - horizontalPadding * 2 - cardGap * (BOARD_COLUMNS - 1);
+    const availableHeight =
+      screenHeight -
+      topContentHeight -
+      safeBottomSpace -
+      cardGap * (BOARD_ROWS - 1);
+
+    const sizeByWidth = availableWidth / BOARD_COLUMNS;
+    const sizeByHeight = availableHeight / BOARD_ROWS;
+    const cardSize = Math.floor(Math.max(62, Math.min(sizeByWidth, sizeByHeight)));
+
+    const boardWidth = cardSize * BOARD_COLUMNS + cardGap * (BOARD_COLUMNS - 1);
+    const boardHeight = cardSize * BOARD_ROWS + cardGap * (BOARD_ROWS - 1);
+
+    return {
+      cardGap,
+      cardSize,
+      boardWidth,
+      boardHeight,
+      horizontalPadding,
+      cardRadius: clamp(cardSize * 0.2, 12, 22),
+      emojiSize: clamp(cardSize * 0.58, 34, 56),
+      closedMarkSize: clamp(cardSize * 0.3, 18, 28),
+    };
+  }, [screenWidth, screenHeight]);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -199,7 +241,7 @@ export default function CaylakGameScreen() {
             player2: 0,
           },
           status: "playing",
-          turnStartedAt: Date.now(),
+turnStartedAt: serverTimestamp(),
           jokers: createInitialJokers(),
           detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
         });
@@ -264,30 +306,43 @@ export default function CaylakGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: nextTurn,
-      turnStartedAt: Date.now(),
-    });
+turnStartedAt: serverTimestamp(),    });
 
     timeoutRunningRef.current = false;
   };
 
   useEffect(() => {
-    if (!room || room.status !== "playing" || !room.currentTurn) return;
+  if (!room || room.status !== "playing" || !room.currentTurn) return;
 
-    const interval = setInterval(() => {
-      const startedAt = room.turnStartedAt ?? Date.now();
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      if (room.detectiveJoker?.active) return;
-      const remaining = Math.max(0, TURN_SECONDS - elapsed);
+  // Sıra bende değilse timer çalıştırma
+  if (room.currentTurn !== myRole) {
+    setTurnTimer(0);
+    return;
+  }
 
-      setTurnTimer(remaining);
+  const interval = setInterval(() => {
+    const startedAt = room.turnStartedAt ?? Date.now();
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
 
-      if (remaining <= 0) {
-        changeTurnByTimeout();
-      }
-    }, 300);
+    if (room.detectiveJoker?.active) return;
 
-    return () => clearInterval(interval);
-  }, [room?.currentTurn, room?.turnStartedAt, room?.status, room?.detectiveJoker?.active, myRole]);
+    const remaining = Math.max(0, TURN_SECONDS - elapsed);
+
+    setTurnTimer(remaining);
+
+    if (remaining <= 0) {
+      changeTurnByTimeout();
+    }
+  }, 250);
+
+  return () => clearInterval(interval);
+}, [
+  room?.currentTurn,
+  room?.turnStartedAt,
+  room?.status,
+  room?.detectiveJoker?.active,
+  myRole,
+]);
 
 
 
@@ -320,8 +375,7 @@ export default function CaylakGameScreen() {
 
       await update(roomRef, {
         detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
-        turnStartedAt: Date.now(),
-      });
+turnStartedAt: serverTimestamp(),      });
 
       detectiveEndingRef.current = false;
     }, remaining);
@@ -369,8 +423,7 @@ export default function CaylakGameScreen() {
     await update(roomRef, {
       openCards: [],
       currentTurn: myRole,
-      turnStartedAt: Date.now(),
-      detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
+turnStartedAt: serverTimestamp(),      detectiveJoker: { active: false, owner: null, cardId: null, endsAt: null },
     });
   };
 
@@ -502,8 +555,7 @@ export default function CaylakGameScreen() {
             openCards: [],
             status: finished ? "finished" : "playing",
             finishedAt: finished ? Date.now() : null,
-            turnStartedAt: Date.now(),
-            [`jokers/${myRole}/goldenActive`]: false,
+turnStartedAt: serverTimestamp(),            [`jokers/${myRole}/goldenActive`]: false,
           });
         } else {
           const nextTurn: PlayerRole = myRole === "player1" ? "player2" : "player1";
@@ -511,8 +563,7 @@ export default function CaylakGameScreen() {
           await update(roomRef, {
             openCards: [],
             currentTurn: nextTurn,
-            turnStartedAt: Date.now(),
-            [`jokers/${myRole}/goldenActive`]: false,
+turnStartedAt: serverTimestamp(),            [`jokers/${myRole}/goldenActive`]: false,
           });
         }
 
@@ -558,7 +609,13 @@ export default function CaylakGameScreen() {
 
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.container}>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView
+        style={[
+          styles.safe,
+          { paddingHorizontal: boardLayout.horizontalPadding },
+        ]}
+      >
+        <View style={{ height: 50}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
@@ -700,7 +757,16 @@ export default function CaylakGameScreen() {
           </View>
         )}
 
-        <View style={styles.board}>
+        <View
+          style={[
+            styles.board,
+            {
+              width: boardLayout.boardWidth,
+              height: boardLayout.boardHeight,
+              gap: boardLayout.cardGap,
+            },
+          ]}
+        >
           {cards.map((card) => {
             const open = isCardOpen(card);
             const openCardRole = getOpenCardRole(card);
@@ -710,6 +776,11 @@ export default function CaylakGameScreen() {
                 key={card.id}
                 style={[
                   styles.card,
+                  {
+                    width: boardLayout.cardSize,
+                    height: boardLayout.cardSize,
+                    borderRadius: boardLayout.cardRadius,
+                  },
                   open && styles.openCard,
                   openCardRole === "player1" && styles.playerOneOpenCard,
                   openCardRole === "player2" && styles.playerTwoOpenCard,
@@ -720,7 +791,40 @@ export default function CaylakGameScreen() {
                 activeOpacity={0.82}
                 disabled={(!myTurn && !room.detectiveJoker?.active) || !!card.matchedBy}
               >
-                <Text style={styles.cardText}>{open ? card.value : "?"}</Text>
+                {open ? (
+                  <LinearGradient
+                    colors={["rgba(255,255,255,0.20)", "rgba(255,255,255,0.04)"]}
+                    style={styles.cardFace}
+                  >
+                    <Text style={[styles.cardText, { fontSize: boardLayout.emojiSize }]}>
+                      {card.value}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <LinearGradient
+                    colors={[
+                      "rgba(0,210,255,0.18)",
+                      "rgba(124,58,237,0.13)",
+                      "rgba(255,255,255,0.04)",
+                    ]}
+                    style={styles.cardFace}
+                  >
+                    <View style={styles.closedCardHalo} />
+                    <View
+                      style={[
+                        styles.closedCardCore,
+                        {
+                          width: boardLayout.closedMarkSize * 1.8,
+                          height: boardLayout.closedMarkSize * 1.8,
+                          borderRadius: boardLayout.closedMarkSize * 0.45,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.closedCardMark, { fontSize: boardLayout.closedMarkSize }]}>✦</Text>
+                    </View>
+                    <View style={styles.closedCardLine} />
+                  </LinearGradient>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -1052,21 +1156,31 @@ const styles = StyleSheet.create({
   },
 
   board: {
-    flex: 1,
+    alignSelf: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: CARD_GAP,
     justifyContent: "center",
     alignContent: "center",
+    marginTop: 4,
   },
 
   card: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    borderRadius: 17,
+    overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1.4,
     borderColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#00D2FF",
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+
+  cardFace: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1098,7 +1212,42 @@ const styles = StyleSheet.create({
 
   cardText: {
     color: "#FFFFFF",
-    fontSize: 34,
     fontWeight: "900",
+    textShadowColor: "rgba(255,255,255,0.26)",
+    textShadowRadius: 8,
+  },
+
+  closedCardHalo: {
+    position: "absolute",
+    width: "78%",
+    height: "78%",
+    borderRadius: 999,
+    backgroundColor: "rgba(0,210,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0,210,255,0.18)",
+  },
+
+  closedCardCore: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+  },
+
+  closedCardMark: {
+    color: "#DFFBFF",
+    fontWeight: "900",
+    textShadowColor: "rgba(0,210,255,0.75)",
+    textShadowRadius: 10,
+  },
+
+  closedCardLine: {
+    position: "absolute",
+    bottom: "17%",
+    width: "44%",
+    height: 2,
+    borderRadius: 99,
+    backgroundColor: "rgba(0,210,255,0.38)",
   },
 });

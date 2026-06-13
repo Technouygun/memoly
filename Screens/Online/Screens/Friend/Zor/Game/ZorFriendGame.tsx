@@ -324,6 +324,7 @@ export default function ZorFriendGame() {
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
+        <View style={{ height: 40}} />
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 

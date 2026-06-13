@@ -187,6 +187,8 @@ export default function FirstFriend() {
   return (
     <LinearGradient colors={["#070712", "#101035", "#171753"]} style={styles.page}>
       <SafeAreaView style={styles.safe}>
+                  <View style={{ height: 50}} />
+        
         <View style={styles.glowOne} />
         <View style={styles.glowTwo} />
 
